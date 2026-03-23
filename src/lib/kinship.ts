@@ -13,13 +13,17 @@ function inferGender(m: FamilyMember | undefined): Gender {
 function getParents(id: string, map: Record<string, FamilyMember>): string[] {
   const m = map[id];
   if (!m) return [];
-  return [m.mother_id, m.father_id].filter(Boolean) as string[];
+  const motherId = m.motherId ?? m.mother_id ?? null;
+  const fatherId = m.fatherId ?? m.father_id ?? null;
+  return [motherId, fatherId].filter(Boolean) as string[];
 }
 
 function getChildren(id: string, map: Record<string, FamilyMember>): string[] {
   const out: string[] = [];
   for (const candidate of Object.values(map)) {
-    if (candidate.mother_id === id || candidate.father_id === id) out.push(candidate.id);
+    const motherId = candidate.motherId ?? candidate.mother_id ?? null;
+    const fatherId = candidate.fatherId ?? candidate.father_id ?? null;
+    if (motherId === id || fatherId === id) out.push(candidate.id);
   }
   return out;
 }
@@ -27,7 +31,7 @@ function getChildren(id: string, map: Record<string, FamilyMember>): string[] {
 function getSpouseId(id: string, map: Record<string, FamilyMember>): string | null {
   const m = map[id];
   if (!m) return null;
-  return m.spouse_id ?? null;
+  return m.spouseId ?? m.spouse_id ?? null;
 }
 
 function areBloodSiblings(aId: string, bId: string, map: Record<string, FamilyMember>) {
@@ -182,7 +186,8 @@ export function getKinshipStatus(meId: string, targetId: string, members: Family
   const directSpouse = getSpouseId(meId, map);
   const reverseSpouse = getSpouseId(targetId, map);
   const spouseId =
-    directSpouse ?? (Object.values(map).find((m) => m.spouse_id === meId)?.id ?? null);
+    directSpouse ??
+    (Object.values(map).find((m) => (m.spouseId ?? m.spouse_id) === meId)?.id ?? null);
   if (spouseId === targetId || reverseSpouse === meId) return getSpouseLabel(meGender, targetGender);
 
   // In-law terms (requested)

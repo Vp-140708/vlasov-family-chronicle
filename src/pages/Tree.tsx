@@ -11,95 +11,195 @@ import {
   type NodeMouseHandler,
 } from "@xyflow/react";
 import "@xyflow/react/dist/style.css";
-import dagre from "@dagrejs/dagre";
 import Navbar from "@/components/Navbar";
 import FamilyNode from "@/components/tree/FamilyNode";
 import MemberSheet from "@/components/tree/MemberSheet";
-import type { FamilyMember, BranchType } from "@/data/familyData";
+import type { FamilyMember } from "@/data/familyData";
+import { familyMembers as localFamilyMembers } from "@/data/familyData";
 import { fetchAllRelatives } from "@/lib/familyMembers";
-import { fetchAllRelationships, relationshipToEdge, type RelationshipRow } from "@/lib/relationships";
-
-type FilterType = "all" | "paternal" | "maternal";
+import CoupleCenterNode from "@/components/tree/CoupleCenterNode";
+import SpouseEdge from "@/components/tree/SpouseEdge";
+import BranchEdge from "@/components/tree/BranchEdge";
 
 const NODE_WIDTH = 200;
 const NODE_HEIGHT = 120;
+const LEVEL_Y = 190;
+const SPOUSE_OFFSET_X = 130;
+const X_GAP = 260;
+const SPOUSE_STROKE = "hsl(43, 76%, 52%)";
 
-const buildNodesAndEdges = (
-  filter: FilterType,
-  members: FamilyMember[],
-  relationships: RelationshipRow[]
-) => {
-  const filtered = members.filter((m) => {
-    if (filter === "all") return true;
-    return (m.branch ?? "both") === filter || (m.branch ?? "both") === "both";
-  });
+function getMotherId(m: FamilyMember) {
+  return m.motherId ?? m.mother_id ?? null;
+}
+function getFatherId(m: FamilyMember) {
+  return m.fatherId ?? m.father_id ?? null;
+}
 
-  const ids = new Set(filtered.map((m) => m.id));
+function buildTreeNodesAndEdges(members: FamilyMember[]): { nodes: Node[]; edges: Edge[] } {
+  const byId: Record<string, FamilyMember> = Object.fromEntries(members.map((m) => [m.id, m]));
 
-  // Build dagre graph
-  const g = new dagre.graphlib.Graph();
-  g.setDefaultEdgeLabel(() => ({}));
-  g.setGraph({ rankdir: "TB", nodesep: 60, ranksep: 100, align: "UL" });
+  const maxDepth = Math.max(0, ...members.map((m) => m.generation ?? 0));
 
-  filtered.forEach((m) => {
-    g.setNode(m.id, { width: NODE_WIDTH, height: NODE_HEIGHT });
-  });
+  // Parent-child adjacency (for x layout)
+  const childrenByParent: Record<string, string[]> = {};
+  for (const m of members) childrenByParent[m.id] = [];
+  for (const child of members) {
+    const fatherId = getFatherId(child);
+    const motherId = getMotherId(child);
+    if (fatherId && byId[fatherId]) childrenByParent[fatherId].push(child.id);
+    if (motherId && byId[motherId]) childrenByParent[motherId].push(child.id);
+  }
 
-  // Edges from `relationships` table: parent -> child (source -> target)
-  for (const r of relationships) {
-    const edge = relationshipToEdge(r);
-    if (!edge) continue;
-    if (ids.has(edge.sourceId) && ids.has(edge.targetId)) {
-      g.setEdge(edge.sourceId, edge.targetId);
+  // Couples derived from father+mother of children
+  type Couple = { coupleKey: string; fatherId: string; motherId: string; children: string[]; generation: number };
+  const coupleMap = new Map<string, Couple>();
+
+  // Also allow explicit spouseId pairs (if provided).
+  for (const person of members) {
+    const spouseId = person.spouseId ?? person.spouse_id ?? null;
+    if (!spouseId) continue;
+    if (!byId[spouseId]) continue;
+    const a = person.id < spouseId ? person.id : spouseId;
+    const b = person.id < spouseId ? spouseId : person.id;
+    const coupleKey = `${a}|${b}`;
+    if (coupleMap.has(coupleKey)) continue;
+    const generation = Math.min(person.generation ?? 0, byId[spouseId].generation ?? 0);
+    coupleMap.set(coupleKey, { coupleKey, fatherId: person.id, motherId: spouseId, children: [], generation });
+  }
+
+  for (const child of members) {
+    const fatherId = getFatherId(child);
+    const motherId = getMotherId(child);
+    if (!fatherId || !motherId) continue;
+    if (!byId[fatherId] || !byId[motherId]) continue;
+
+    const a = fatherId < motherId ? fatherId : motherId;
+    const b = fatherId < motherId ? motherId : fatherId;
+    const coupleKey = `${a}|${b}`;
+
+    const generation = Math.min(byId[fatherId]?.generation ?? 0, byId[motherId]?.generation ?? 0);
+    const existing = coupleMap.get(coupleKey);
+    if (!existing) {
+      coupleMap.set(coupleKey, { coupleKey, fatherId, motherId, children: [child.id], generation });
+    } else {
+      existing.children.push(child.id);
     }
   }
 
-  dagre.layout(g);
+  for (const couple of coupleMap.values()) {
+    couple.children = Array.from(new Set(couple.children));
+  }
 
-  const nodes: Node[] = filtered.map((m) => {
-    const pos = g.node(m.id);
-    return {
+  // Individuals grouped by generation
+  const idsByDepth: Record<number, string[]> = {};
+  for (const m of members) {
+    const d = m.generation ?? 0;
+    idsByDepth[d] = idsByDepth[d] ?? [];
+    idsByDepth[d].push(m.id);
+  }
+  for (const depth of Object.keys(idsByDepth)) idsByDepth[Number(depth)].sort((a, b) => a.localeCompare(b));
+
+  const xCenters: Record<string, number | undefined> = {};
+  const coupleCenterX: Record<string, number | undefined> = {};
+
+  let slot = 0;
+
+  for (let depth = maxDepth; depth >= 0; depth--) {
+    // 1) Assign x for couples at this depth (from children x if available)
+    const couplesAtDepth = Array.from(coupleMap.values()).filter((c) => c.generation === depth);
+    for (const c of couplesAtDepth) {
+      const childXs = c.children.map((id) => xCenters[id]).filter((v): v is number => typeof v === "number");
+      const centerX = childXs.length ? childXs.reduce((a, b) => a + b, 0) / childXs.length : slot * X_GAP;
+      coupleCenterX[c.coupleKey] = centerX;
+
+      xCenters[c.fatherId] = centerX - SPOUSE_OFFSET_X;
+      xCenters[c.motherId] = centerX + SPOUSE_OFFSET_X;
+      slot++;
+    }
+
+    // 2) Assign remaining individuals
+    for (const id of idsByDepth[depth] ?? []) {
+      if (typeof xCenters[id] === "number") continue;
+      const childXs = (childrenByParent[id] ?? []).map((cid) => xCenters[cid]).filter((v): v is number => typeof v === "number");
+      const centerX = childXs.length ? childXs.reduce((a, b) => a + b, 0) / childXs.length : slot * X_GAP;
+      xCenters[id] = centerX;
+      slot++;
+    }
+  }
+
+  const nodes: Node[] = [];
+  const edges: Edge[] = [];
+
+  // Person nodes
+  for (const m of members) {
+    const cx = xCenters[m.id] ?? 0;
+    const depth = m.generation ?? 0;
+    nodes.push({
       id: m.id,
       type: "familyNode",
-      position: { x: pos.x - NODE_WIDTH / 2, y: pos.y - NODE_HEIGHT / 2 },
+      position: { x: cx - NODE_WIDTH / 2, y: depth * LEVEL_Y },
       draggable: false,
       data: {
         name: m.name,
         years: m.years,
         title: m.title,
-        branch: m.branch as BranchType,
+        branch: m.branch,
         memberId: m.id,
       },
-    };
-  });
-
-  const edges: Edge[] = [];
-  for (const r of relationships) {
-    const edge = relationshipToEdge(r);
-    if (!edge) continue;
-    if (!ids.has(edge.sourceId) || !ids.has(edge.targetId)) continue;
-
-    edges.push({
-      id: `${edge.sourceId}-${edge.targetId}`,
-      source: edge.sourceId,
-      target: edge.targetId,
-      style: { stroke: "hsl(43, 76%, 52%)", strokeWidth: 1 },
-      type: "straight",
     });
   }
 
-  return { nodes, edges };
-};
+  // Couple-center nodes and edges
+  for (const c of coupleMap.values()) {
+    const depth = c.generation;
+    const centerX = coupleCenterX[c.coupleKey] ?? 0;
+    const centerId = `center-${c.coupleKey}`;
+    const centerY = depth * LEVEL_Y + NODE_HEIGHT / 2 - 1;
 
-const nodeTypes = { familyNode: FamilyNode };
+    nodes.push({
+      id: centerId,
+      type: "coupleCenter",
+      position: { x: centerX - 0.5, y: centerY },
+      draggable: false,
+      data: { coupleKey: c.coupleKey },
+    });
+
+    // Horizontal edge between spouses
+    edges.push({
+      id: `spouse-${c.coupleKey}`,
+      source: c.fatherId,
+      target: c.motherId,
+      sourceHandle: "right",
+      targetHandle: "left",
+      type: "spouseEdge",
+      style: { stroke: SPOUSE_STROKE, strokeWidth: 2 },
+    });
+
+    // Vertical -> 90deg to all children
+    for (const childId of c.children) {
+      edges.push({
+        id: `branch-${centerId}-${childId}`,
+        source: centerId,
+        target: childId,
+        sourceHandle: "bottom",
+        targetHandle: "top",
+        type: "branchEdge",
+        style: { stroke: SPOUSE_STROKE, strokeWidth: 2 },
+      });
+    }
+  }
+
+  return { nodes, edges };
+}
+
+const nodeTypes = { familyNode: FamilyNode, coupleCenter: CoupleCenterNode };
+const edgeTypes = { spouseEdge: SpouseEdge, branchEdge: BranchEdge };
 
 const Tree = () => {
-  const [filter, setFilter] = useState<FilterType>("all");
   const [selectedMember, setSelectedMember] = useState<FamilyMember | null>(null);
   const [sheetOpen, setSheetOpen] = useState(false);
 
-  const [members, setMembers] = useState<FamilyMember[]>([]);
-  const [relationships, setRelationships] = useState<RelationshipRow[]>([]);
+  const [members, setMembers] = useState<FamilyMember[]>(localFamilyMembers);
   const [loading, setLoading] = useState(true);
 
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
@@ -110,20 +210,20 @@ const Tree = () => {
     (async () => {
       try {
         setLoading(true);
-        const [rows, rels] = await Promise.all([fetchAllRelatives(), fetchAllRelationships()]);
-        const normalized: FamilyMember[] = rows.map((r) => ({
+        const rows = await fetchAllRelatives();
+        const normalized: FamilyMember[] = (rows ?? []).map((r) => ({
           id: r.id,
           name: r.name,
           years: r.years ?? "",
           title: r.title ?? "",
-          branch: (r.branch as BranchType) ?? "both",
+          branch: (r.branch as any) ?? "both",
           bio: r.bio ?? "",
           habits: r.habits ?? [],
           medical: r.medical ?? [],
           generation: r.generation ?? 0,
-          mother_id: r.mother_id ?? null,
-          father_id: r.father_id ?? null,
-          spouse_id: r.spouse_id ?? null,
+          motherId: r.mother_id ?? null,
+          fatherId: r.father_id ?? null,
+          spouseId: r.spouse_id ?? null,
           gender: r.gender ?? null,
           map_locations: r.map_locations ?? null,
           map_city: r.map_city ?? null,
@@ -135,18 +235,22 @@ const Tree = () => {
         }));
 
         if (!mounted) return;
-        setMembers(normalized);
-        setRelationships(rels);
+        const useFallback = !normalized.length;
+        setMembers(useFallback ? localFamilyMembers : normalized);
 
         const picked =
           envCurrentUserId.trim() ||
-          normalized.find((m) => m.generation === 0)?.id ||
-          normalized[0]?.id ||
+          (useFallback ? localFamilyMembers : normalized).find((m) => m.generation === 0)?.id ||
+          (useFallback ? localFamilyMembers : normalized)[0]?.id ||
           null;
         setCurrentUserId(picked);
       } catch (e) {
         // eslint-disable-next-line no-console
         console.error("[Tree] Failed to load family_members:", e);
+        setMembers(localFamilyMembers);
+        setCurrentUserId(
+          localFamilyMembers.find((m) => m.id === "pavel_vlasov")?.id ?? localFamilyMembers[0]?.id ?? null
+        );
       } finally {
         if (mounted) setLoading(false);
       }
@@ -157,8 +261,8 @@ const Tree = () => {
   }, [envCurrentUserId]);
 
   const { nodes: builtNodes, edges: builtEdges } = useMemo(
-    () => buildNodesAndEdges(filter, members, relationships),
-    [filter, members, relationships]
+    () => buildTreeNodesAndEdges(members),
+    [members]
   );
 
   const [nodes, setNodes, onNodesChange] = useNodesState(builtNodes);
@@ -170,18 +274,13 @@ const Tree = () => {
   }, [builtNodes, builtEdges, setNodes, setEdges]);
 
   const onNodeClick: NodeMouseHandler = useCallback((_event, node) => {
-    const member = members.find((m) => m.id === (node.data as any).memberId);
-    if (member) {
-      setSelectedMember(member);
-      setSheetOpen(true);
-    }
+    const clickedId = (node.data as any)?.memberId as string | undefined;
+    if (!clickedId) return;
+    const member = members.find((m) => m.id === clickedId);
+    if (!member) return;
+    setSelectedMember(member);
+    setSheetOpen(true);
   }, [members]);
-
-  const filters: { label: string; value: FilterType; color: string }[] = [
-    { label: "Все", value: "all", color: "bg-accent text-accent-foreground" },
-    { label: "Папина линия", value: "paternal", color: "bg-[hsl(222,42%,30%)] text-[hsl(40,40%,95%)]" },
-    { label: "Мамина линия", value: "maternal", color: "bg-[hsl(152,40%,38%)] text-[hsl(40,40%,95%)]" },
-  ];
 
   return (
     <div className="min-h-screen bg-background">
@@ -195,25 +294,7 @@ const Tree = () => {
         >
           <div>
             <h1 className="font-display text-2xl font-bold text-foreground">Генеалогическое древо</h1>
-            <p className="text-sm text-muted-foreground">Нажмите на узел, чтобы узнать больше</p>
-          </div>
-
-          <div className="flex gap-2">
-            {filters.map((f) => (
-              <button
-                key={f.value}
-                onClick={() => setFilter(f.value)}
-                className={`
-                  px-4 py-1.5 rounded-full text-xs font-medium transition-all duration-200
-                  ${filter === f.value
-                    ? f.color
-                    : "bg-secondary text-muted-foreground hover:bg-secondary/80"
-                  }
-                `}
-              >
-                {f.label}
-              </button>
-            ))}
+            <p className="text-sm text-muted-foreground">Т-схема: перемычка супругов, от центра — к детям</p>
           </div>
         </motion.div>
 
@@ -230,12 +311,14 @@ const Tree = () => {
             onEdgesChange={onEdgesChange}
             onNodeClick={onNodeClick}
             nodeTypes={nodeTypes}
+            edgeTypes={edgeTypes}
             nodesDraggable={false}
             fitView
             fitViewOptions={{ padding: 0.3 }}
             proOptions={{ hideAttribution: true }}
             minZoom={0.3}
             maxZoom={1.5}
+            elementsSelectable={false}
           >
             <Background color="hsl(35, 25%, 82%)" gap={24} size={1} />
             <Controls

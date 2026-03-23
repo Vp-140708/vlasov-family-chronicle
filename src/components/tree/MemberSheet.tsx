@@ -1,8 +1,7 @@
-import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
-import { User, Heart, Stethoscope, BookOpen, Users } from "lucide-react";
+import { Sheet, SheetContent, SheetTitle } from "@/components/ui/sheet";
+import { Heart, Stethoscope, BookOpen, Users } from "lucide-react";
 import type { FamilyMember } from "@/data/familyData";
 import { getKinshipStatus } from "@/lib/kinship";
-import { getFallbackBiography } from "@/data/biographies";
 
 interface MemberSheetProps {
   member: FamilyMember | null;
@@ -29,73 +28,96 @@ const MemberSheet = ({ member, open, onOpenChange, members, currentUserId }: Mem
 
   const relationship =
     currentUserId && members.length ? getKinshipStatus(currentUserId, member.id, members) : "Родственник";
-  const bio = member.bio?.trim() ? member.bio : getFallbackBiography(member.name);
+  const bio = member.bio?.trim() ? member.bio : "";
 
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
-      <SheetContent className="overflow-y-auto bg-background border-border">
-        <SheetHeader className="pb-4">
-          <div className="flex flex-col items-center text-center gap-3 pt-2">
-            <div className="w-20 h-20 rounded-full bg-secondary flex items-center justify-center border-2 border-accent/30">
-              <User className="w-8 h-8 text-muted-foreground" />
-            </div>
-            <div>
-              <SheetTitle className="font-display text-xl">{member.name}</SheetTitle>
+      <SheetContent className="w-full h-full max-w-none p-0 overflow-y-auto bg-background border-border">
+        <div className="min-h-full">
+          <div className="border-b border-border px-6 py-4 flex items-center justify-between gap-4">
+            <div className="min-w-0">
+              <SheetTitle className="font-display text-xl break-words">{member.name}</SheetTitle>
               <p className="text-sm text-muted-foreground mt-0.5">{member.years}</p>
+              <div className="flex flex-wrap items-center gap-2 mt-2">
+                <span className="inline-flex items-center gap-2 text-sm px-3 py-1 rounded-full bg-secondary text-foreground font-medium">
+                  <Users className="w-4 h-4 text-accent" />
+                  {relationship}
+                </span>
+                <span className={`inline-block text-xs px-3 py-1 rounded-full font-medium ${branchColor[member.branch]}`}>
+                  {branchLabel[member.branch]}
+                </span>
+              </div>
+            </div>
+          </div>
 
-              {/* Relationship status (under name) */}
-              <div className="flex items-center justify-center gap-1.5 mt-2 mb-1">
-                <Users className="w-3.5 h-3.5 text-accent" />
-                <span className="text-sm font-medium text-accent">{relationship}</span>
+          <div className="px-6 py-6">
+            <div className="grid grid-cols-1 md:grid-cols-[280px_1fr] gap-8">
+              <div>
+                <div className="rounded-2xl overflow-hidden border border-border bg-card">
+                  <img
+                    src={member.photo_url ?? "/placeholder.svg"}
+                    alt={member.name}
+                    className="w-full h-[360px] object-cover"
+                  />
+                </div>
+                <div className="mt-4 card-heritage p-4 border-border">
+                  <div className="text-xs uppercase tracking-[0.2em] text-accent font-medium">Статус</div>
+                  <div className="mt-2 font-display text-lg font-semibold text-foreground">{member.title}</div>
+                </div>
               </div>
 
-              <span className={`inline-block mt-1 text-xs px-3 py-1 rounded-full font-medium ${branchColor[member.branch]}`}>
-                {branchLabel[member.branch]}
-              </span>
-            </div>
-          </div>
-        </SheetHeader>
+              <div className="space-y-6">
+                <div className="card-heritage p-6 border-border">
+                  <div className="flex items-center gap-2 mb-3">
+                    <BookOpen className="w-4 h-4 text-accent" />
+                    <h3 className="font-display text-sm font-semibold text-foreground">Подробная Биография</h3>
+                  </div>
+                  {bio ? (
+                    <p className="text-sm text-muted-foreground leading-relaxed whitespace-pre-line">{bio}</p>
+                  ) : (
+                    <p className="text-sm text-muted-foreground leading-relaxed">Биография пока не заполнена.</p>
+                  )}
+                </div>
 
-        <div className="space-y-6 mt-4">
-          {/* Bio */}
-          <div>
-            <div className="flex items-center gap-2 mb-2">
-              <BookOpen className="w-4 h-4 text-accent" />
-              <h3 className="font-display text-sm font-semibold text-foreground">Биография</h3>
-            </div>
-            <p className="text-sm text-muted-foreground leading-relaxed">{bio ?? ""}</p>
-          </div>
+                <div className="card-heritage p-6 border-border">
+                  <div className="flex items-center gap-2 mb-3">
+                    <Heart className="w-4 h-4 text-accent" />
+                    <h3 className="font-display text-sm font-semibold text-foreground">Привычки</h3>
+                  </div>
+                  {member.habits.length ? (
+                    <ul className="space-y-2">
+                      {member.habits.map((h) => (
+                        <li key={h} className="text-sm text-muted-foreground flex items-start gap-2">
+                          <span className="mt-1.5 w-1.5 h-1.5 rounded-full bg-accent shrink-0" />
+                          {h}
+                        </li>
+                      ))}
+                    </ul>
+                  ) : (
+                    <p className="text-sm text-muted-foreground leading-relaxed">Нет данных.</p>
+                  )}
+                </div>
 
-          {/* Habits */}
-          <div>
-            <div className="flex items-center gap-2 mb-2">
-              <Heart className="w-4 h-4 text-accent" />
-              <h3 className="font-display text-sm font-semibold text-foreground">Привычки и увлечения</h3>
+                <div className="card-heritage p-6 border-border">
+                  <div className="flex items-center gap-2 mb-3">
+                    <Stethoscope className="w-4 h-4 text-destructive" />
+                    <h3 className="font-display text-sm font-semibold text-foreground">Здоровье</h3>
+                  </div>
+                  {member.medical.length ? (
+                    <ul className="space-y-2">
+                      {member.medical.map((m) => (
+                        <li key={m} className="text-sm text-muted-foreground flex items-start gap-2">
+                          <span className="mt-1.5 w-1.5 h-1.5 rounded-full bg-destructive shrink-0" />
+                          {m}
+                        </li>
+                      ))}
+                    </ul>
+                  ) : (
+                    <p className="text-sm text-muted-foreground leading-relaxed">Нет данных.</p>
+                  )}
+                </div>
+              </div>
             </div>
-            <ul className="space-y-1">
-              {member.habits.map((h) => (
-                <li key={h} className="text-sm text-muted-foreground flex items-start gap-2">
-                  <span className="mt-1.5 w-1.5 h-1.5 rounded-full bg-accent shrink-0" />
-                  {h}
-                </li>
-              ))}
-            </ul>
-          </div>
-
-          {/* Medical */}
-          <div>
-            <div className="flex items-center gap-2 mb-2">
-              <Stethoscope className="w-4 h-4 text-destructive" />
-              <h3 className="font-display text-sm font-semibold text-foreground">Медицинские заметки</h3>
-            </div>
-            <ul className="space-y-1">
-              {member.medical.map((m) => (
-                <li key={m} className="text-sm text-muted-foreground flex items-start gap-2">
-                  <span className="mt-1.5 w-1.5 h-1.5 rounded-full bg-destructive shrink-0" />
-                  {m}
-                </li>
-              ))}
-            </ul>
           </div>
         </div>
       </SheetContent>

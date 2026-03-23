@@ -36,7 +36,7 @@ const FamilyNode = ({ data }: NodeProps) => {
         ${branchStyles[d.branch]}
       `}
     >
-      <Handle type="target" position={Position.Top} className="!bg-border !w-2 !h-2" />
+      <Handle id="top" type="target" position={Position.Top} className="!bg-border !w-2 !h-2" />
 
       <div className={`w-12 h-12 rounded-full bg-secondary flex items-center justify-center mx-auto mb-2 border ${dotStyles[d.branch]} border-opacity-30`}>
         <User className="w-5 h-5 text-muted-foreground" />
@@ -50,7 +50,10 @@ const FamilyNode = ({ data }: NodeProps) => {
         <span className="text-[10px] text-muted-foreground">{d.title}</span>
       </div>
 
-      <Handle type="source" position={Position.Bottom} className="!bg-border !w-2 !h-2" />
+      <Handle id="right" type="source" position={Position.Right} className="!bg-border !w-2 !h-2" />
+      <Handle id="left" type="target" position={Position.Left} className="!bg-border !w-2 !h-2" />
+
+      <Handle id="bottom" type="source" position={Position.Bottom} className="!bg-border !w-2 !h-2" />
     </div>
   );
 };
