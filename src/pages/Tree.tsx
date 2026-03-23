@@ -78,17 +78,12 @@ const buildNodesAndEdges = (filter: FilterType) => {
   const edges: Edge[] = relationships
     .filter(([from, to]) => ids.has(from) && ids.has(to))
     .map(([from, to]) => {
-      const fromMember = familyMembers.find((m) => m.id === from);
-      let stroke = "hsl(43, 52%, 54%)";
-      if (fromMember?.branch === "paternal") stroke = "hsl(222, 42%, 30%)";
-      if (fromMember?.branch === "maternal") stroke = "hsl(152, 40%, 38%)";
-
       return {
         id: `${from}-${to}`,
         source: from,
         target: to,
-        style: { stroke, strokeWidth: 1.5 },
-        type: "default",
+        style: { stroke: "hsl(43, 76%, 52%)", strokeWidth: 1 },
+        type: "straight",
       };
     });
 
