@@ -4,10 +4,11 @@ import ReactFlow, {
   Controls, 
   Edge, 
   Node, 
-  ConnectionLineType,
-  useNodesState,
-  useEdgesState,
-  Panel
+  useNodesState, 
+  useEdgesState, 
+  Panel,
+  applyNodeChanges,
+  OnNodesChange
 } from 'reactflow';
 import 'reactflow/dist/style.css';
 import { familyMembers, FamilyMember } from '../data/familyData';
@@ -16,61 +17,37 @@ import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from "
 const Tree = () => {
   const [selectedMember, setSelectedMember] = useState<FamilyMember | null>(null);
 
+  // 1. Генерируем начальные позиции (теперь они временные)
   const { initialNodes, initialEdges } = useMemo(() => {
     const nodes: Node[] = [];
     const edges: Edge[] = [];
-    const Y_LEVEL = 350; // Расстояние между поколениями
-    const X_GAP = 400;   // Расстояние между ветками
+    const Y_LEVEL = 300;
 
-    // 1. Генерируем узлы людей
-    familyMembers.forEach((m) => {
-      const isVlasov = m.branch === 'paternal';
-      const xBase = isVlasov ? -X_GAP : (m.branch === 'maternal' ? X_GAP : 0);
-      const genderShift = m.gender === 'm' ? -140 : 140;
+    familyMembers.forEach((m, index) => {
+      const xBase = m.branch === 'paternal' ? -400 : (m.branch === 'maternal' ? 400 : 0);
+      const genderShift = m.gender === 'm' ? -150 : 150;
 
       nodes.push({
         id: m.id,
         data: { 
           member: m,
           label: (
-            <div className={`p-5 rounded-sm border-t-4 shadow-2xl bg-[#fdfaf5] w-64 text-center transition-all hover:scale-105 border-b border-l border-r border-stone-200 ${
+            <div className={`p-4 rounded-xl border-t-4 shadow-xl bg-white w-60 text-center border-b border-l border-r border-stone-200 cursor-grab active:cursor-grabbing ${
               m.branch === 'paternal' ? 'border-t-blue-800' : (m.branch === 'maternal' ? 'border-t-emerald-800' : 'border-t-amber-600')
             }`}>
-              <div className="font-serif text-[10px] uppercase tracking-widest text-stone-400 mb-1">{m.title}</div>
-              <div className="font-serif font-bold text-lg text-stone-900 leading-tight border-b border-stone-100 pb-2">{m.name}</div>
-              <div className="text-xs text-amber-700 font-serif italic mt-2">{m.years}</div>
+              <div className="font-serif text-[9px] uppercase tracking-widest text-stone-400 mb-1">{m.title}</div>
+              <div className="font-serif font-bold text-base text-stone-900 leading-tight border-b border-stone-50 pb-1">{m.name}</div>
+              <div className="text-[10px] text-amber-700 font-serif italic mt-1">{m.years}</div>
             </div>
           )
         },
-        position: { x: xBase + genderShift, y: m.generation * Y_LEVEL },
-        draggable: false, // Чтобы не ломать структуру захватом
+        position: { x: xBase + genderShift + (index * 10), y: m.generation * Y_LEVEL },
+        draggable: true, // ВКЛЮЧАЕМ ВОЗМОЖНОСТЬ ДВИГАТЬ
       });
 
-      // 2. Создаем Т-образные связи через Marriage Nodes
-      if (m.fatherId && m.motherId) {
-        const unionId = `u-${m.fatherId}-${m.motherId}`;
-        
-        if (!nodes.find(n => n.id === unionId)) {
-          nodes.push({
-            id: unionId,
-            data: { label: '' },
-            position: { x: xBase, y: (m.generation * Y_LEVEL) - 175 },
-            style: { width: 12, height: 12, borderRadius: '50%', background: '#d4af37', border: '2px solid #fff', boxShadow: '0 0 10px rgba(212,175,55,0.5)' },
-            type: 'default'
-          });
-          
-          edges.push({ id: `e-${m.fatherId}`, source: m.fatherId, target: unionId, type: 'straight', style: { stroke: '#d4af37', strokeWidth: 1.5 }});
-          edges.push({ id: `e-${m.motherId}`, source: m.motherId, target: unionId, type: 'straight', style: { stroke: '#d4af37', strokeWidth: 1.5 }});
-        }
-
-        edges.push({
-          id: `ec-${m.id}`,
-          source: unionId,
-          target: m.id,
-          type: 'step', // Углы 90 градусов
-          style: { stroke: '#d4af37', strokeWidth: 2 }
-        });
-      }
+      // Простые связи для начала (прямые, чтобы не путаться при движении)
+      if (m.fatherId) edges.push({ id: `e-f-${m.id}`, source: m.fatherId, target: m.id, style: { stroke: '#d4af37', strokeWidth: 2 }});
+      if (m.motherId) edges.push({ id: `e-m-${m.id}`, source: m.motherId, target: m.id, style: { stroke: '#d4af37', strokeWidth: 2 }});
     });
 
     return { initialNodes: nodes, initialEdges: edges };
@@ -79,87 +56,56 @@ const Tree = () => {
   const [nodes, setNodes, onNodesChange] = useNodesState(initialNodes);
   const [edges, setEdges, onEdgesChange] = useEdgesState(initialEdges);
 
+  // Функция для вывода координат в консоль (чтобы потом сохранить результат)
+  const logPositions = () => {
+    console.log("Новые координаты для familyData.ts:");
+    nodes.forEach(node => {
+      console.log(`${node.id}: { x: ${Math.round(node.position.x)}, y: ${Math.round(node.position.y)} }`);
+    });
+    alert("Координаты выведены в консоль браузера (F12)");
+  };
+
   return (
-    <div className="w-full h-[calc(100vh-64px)] bg-[#f5f2ed] relative">
+    <div className="w-full h-[calc(100vh-64px)] bg-[#f5f2ed]">
       <ReactFlow
         nodes={nodes}
         edges={edges}
         onNodesChange={onNodesChange}
-        onEdgesChange={onEdgesChange}
         onNodeClick={(_, node) => node.data.member && setSelectedMember(node.data.member)}
-        // Настройки зума и перемещения
         fitView
-        minZoom={0.1}
-        maxZoom={1.5}
-        defaultViewport={{ x: 0, y: 0, zoom: 0.8 }}
-        panOnScroll={false} // Чтобы скролл страницы работал, если нужно
-        selectionOnDrag={false}
-        panOnDrag={true} // РАБОТАЕТ ЗАХВАТ МЫШКОЙ
-        nodesDraggable={false} // Узлы зафиксированы
+        nodesDraggable={true} // РАЗРЕШАЕМ ТАСКАТЬ
+        panOnDrag={true}
       >
-        <Background color="#dcd6cc" gap={40} size={1} />
-        <Controls showInteractive={false} className="bg-white border-stone-200" />
+        <Background color="#dcd6cc" gap={40} />
+        <Controls />
         
-        <Panel position="top-left" className="bg-stone-50/80 p-3 rounded-md border border-stone-200 backdrop-blur-sm">
-          <h2 className="font-serif text-stone-800 font-bold">Генеалогическое древо</h2>
-          <p className="text-[10px] text-stone-500 uppercase tracking-tighter">Зажмите ЛКМ для перемещения</p>
+        <Panel position="top-left" className="bg-white/90 p-4 rounded-lg border border-stone-200 shadow-sm backdrop-blur-sm">
+            <h2 className="font-serif font-bold text-stone-800">Режим конструктора</h2>
+            <p className="text-[10px] uppercase text-stone-500 mb-4">Расставь людей как тебе удобно</p>
+            <button 
+              onClick={logPositions}
+              className="bg-amber-600 text-white text-xs px-3 py-2 rounded hover:bg-amber-700 transition-colors"
+            >
+              Сохранить положение
+            </button>
         </Panel>
       </ReactFlow>
 
-      {/* Боковая панель (как на всем сайте) */}
+      {/* Боковая панель (та же самая) */}
       <Sheet open={!!selectedMember} onOpenChange={() => setSelectedMember(null)}>
-        <SheetContent className="bg-[#fdfaf5] border-l border-stone-200 overflow-y-auto sm:max-w-lg">
+        <SheetContent className="bg-[#fdfaf5] sm:max-w-lg overflow-y-auto">
           {selectedMember && (
-            <div className="py-10 px-4">
-              <SheetHeader className="text-center space-y-4">
-                <div className="w-32 h-32 bg-stone-100 rounded-full mx-auto border-4 border-white shadow-xl flex items-center justify-center overflow-hidden">
-                   <span className="text-5xl font-serif text-stone-300">{selectedMember.name[0]}</span>
-                </div>
-                <div>
-                  <SheetTitle className="text-3xl font-serif text-stone-900">{selectedMember.name}</SheetTitle>
-                  <SheetDescription className="text-amber-700 font-serif italic text-lg mt-1">
-                    {selectedMember.years}
-                  </SheetDescription>
-                </div>
-                <div className="inline-block px-4 py-1 rounded-full bg-stone-100 text-[10px] uppercase tracking-[0.2em] text-stone-500 font-bold">
-                  {selectedMember.title}
-                </div>
-              </SheetHeader>
-
-              <div className="mt-10 space-y-8">
-                <section>
-                  <h4 className="text-[10px] uppercase tracking-[0.3em] text-stone-400 font-bold mb-3 border-b pb-2">Личная летопись</h4>
-                  <p className="font-serif text-stone-800 leading-relaxed text-lg first-letter:text-4xl first-letter:font-bold first-letter:mr-1 first-letter:float-left">
-                    {selectedMember.bio || "История этого предка еще собирается по крупицам в архивах..."}
-                  </p>
-                </section>
-
-                {selectedMember.habits?.length > 0 && (
-                  <section>
-                    <h4 className="text-[10px] uppercase tracking-[0.3em] text-stone-400 font-bold mb-3">Черты и привычки</h4>
-                    <div className="flex flex-wrap gap-2">
-                      {selectedMember.habits.map(h => (
-                        <span key={h} className="bg-white border border-stone-200 px-3 py-1 rounded-sm text-sm font-serif text-stone-700 shadow-sm">
-                          {h}
-                        </span>
-                      ))}
+            <div className="py-8">
+                <div className="text-center mb-8">
+                    <div className="w-24 h-24 bg-stone-100 rounded-full mx-auto flex items-center justify-center text-3xl font-serif text-stone-400 border-2 border-white shadow-lg">
+                        {selectedMember.name[0]}
                     </div>
-                  </section>
-                )}
-
-                {selectedMember.medical?.length > 0 && (
-                  <section className="bg-red-50/50 p-4 border border-red-100 rounded-sm">
-                    <h4 className="text-[10px] uppercase tracking-[0.3em] text-red-400 font-bold mb-3">Генетическая память (Здоровье)</h4>
-                    <ul className="space-y-1">
-                      {selectedMember.medical.map(m => (
-                        <li key={m} className="text-sm font-serif text-red-900 flex items-center gap-2">
-                          <span className="w-1.5 h-1.5 bg-red-400 rounded-full" /> {m}
-                        </li>
-                      ))}
-                    </ul>
-                  </section>
-                )}
-              </div>
+                    <h2 className="text-3xl font-serif text-stone-900 mt-4">{selectedMember.name}</h2>
+                    <p className="text-amber-700 font-serif italic text-lg">{selectedMember.years}</p>
+                </div>
+                <div className="space-y-6 font-serif text-stone-800 text-lg">
+                    <p>{selectedMember.bio || "Исследуем..."}</p>
+                </div>
             </div>
           )}
         </SheetContent>
