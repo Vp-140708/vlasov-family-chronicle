@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useState, useMemo } from 'react';
 import ReactFlow, { 
   Background, 
   Controls, 
@@ -7,70 +7,104 @@ import ReactFlow, {
   addEdge, 
   Panel,
   Connection,
-  Edge
+  Edge,
+  Node
 } from 'reactflow';
 import 'reactflow/dist/style.css';
-import { familyMembers } from '../data/familyData';
-import { supabase } from '../lib/supabase'; // Импортируем базу
+import { familyMembers, FamilyMember } from '../data/familyData';
+import { supabase } from '../lib/supabase';
+import { Sheet, SheetContent } from "@/components/ui/sheet";
 
 const Tree = () => {
-  // Начальная расстановка (дефолтная)
-  const defaultNodes = familyMembers.map((m, index) => ({
-    id: m.id,
-    data: { label: (
-      <div className="p-3 text-center font-serif">
-        <div className="font-bold text-[13px]">{m.name}</div>
-        <div className="text-[10px] text-amber-700 italic">{m.years}</div>
-      </div>
-    )},
-    position: { x: (index % 5) * 280, y: m.generation * 200 },
-  }));
-
-  const [nodes, setNodes, onNodesChange] = useNodesState(defaultNodes);
-  const [edges, setEdges, onEdgesChange] = useEdgesState([]);
+  const [selectedMember, setSelectedMember] = useState<FamilyMember | null>(null);
   const [isSaving, setIsSaving] = useState(false);
 
-  // 1. ЗАГРУЗКА ИЗ БАЗЫ ПРИ ОТКРЫТИИ
+  // Функция для отрисовки красивой карточки (только для экрана)
+  const renderNodeLabel = (m: FamilyMember) => (
+    <div className={`p-4 rounded-xl border-t-4 shadow-xl bg-white w-60 text-center border-stone-200 transition-all hover:scale-105 ${
+      m.branch === 'paternal' ? 'border-t-blue-800' : (m.branch === 'maternal' ? 'border-t-emerald-800' : 'border-t-amber-600')
+    }`}>
+      <div className="font-serif font-bold text-slate-900 leading-tight">{m.name}</div>
+      <div className="text-xs text-amber-700 font-bold">{m.years}</div>
+      <div className="text-[9px] uppercase text-stone-400 mt-1">{m.title}</div>
+    </div>
+  );
+
+  // Начальные узлы (подгружаем данные из familyData и добавляем им визуализацию)
+  const initialNodes: Node[] = useMemo(() => familyMembers.map((m, index) => ({
+    id: m.id,
+    data: { member: m, label: renderNodeLabel(m) },
+    position: { x: m.branch === 'paternal' ? -400 : 400, y: m.generation * 300 },
+    draggable: true,
+  })), []);
+
+  const [nodes, setNodes, onNodesChange] = useNodesState(initialNodes);
+  const [edges, setEdges, onEdgesChange] = useEdgesState([]);
+
+  // 1. ЗАГРУЗКА ИЗ БАЗЫ
   useEffect(() => {
     const loadTree = async () => {
       const { data, error } = await supabase
         .from('tree_layout')
         .select('*')
-        .eq('id', 'main_tree')
-        .single();
+        .filter('id', 'eq', 'main_tree')
+        .maybeSingle();
 
-      if (data && !error) {
-        // Если в базе есть данные, обновляем позиции и связи
-        setNodes(data.nodes);
-        setEdges(data.edges);
+      if (data && !error && data.nodes) {
+        // Восстанавливаем JSX-лейблы, так как в базе их нет
+        const rehydratedNodes = data.nodes.map((savedNode: any) => {
+          const member = familyMembers.find(m => m.id === savedNode.id);
+          return {
+            ...savedNode,
+            data: { 
+              member: member, 
+              label: member ? renderNodeLabel(member) : 'Unknown' 
+            }
+          };
+        });
+        setNodes(rehydratedNodes);
+        if (data.edges) setEdges(data.edges);
       }
     };
     loadTree();
   }, [setNodes, setEdges]);
 
-  // 2. СОХРАНЕНИЕ В БАЗУ ПО КНОПКЕ
+  // 2. СОХРАНЕНИЕ В БАЗУ (С ОЧИСТКОЙ)
   const saveToSupabase = async () => {
     setIsSaving(true);
-    const { error } = await supabase
-      .from('tree_layout')
-      .upsert({ 
-        id: 'main_tree', 
-        nodes: nodes, 
-        edges: edges,
-        updated_at: new Date() 
-      });
+    try {
+      // Очищаем узлы от JSX перед сохранением (оставляем только id, position и type)
+      const cleanNodes = nodes.map(({ id, position, type, data }) => ({
+        id,
+        position,
+        type,
+        // Сохраняем только id участника, а не весь компонент label
+        data: { memberId: data.member?.id } 
+      }));
 
-    if (error) {
-      alert("Ошибка сохранения: " + error.message);
-    } else {
-      alert("Всё сохранено в облако!");
+      const { error } = await supabase
+        .from('tree_layout')
+        .upsert({ 
+          id: 'main_tree', 
+          nodes: cleanNodes, // Теперь тут нет цикличных ссылок!
+          edges: edges,
+          updated_at: new Date().toISOString() 
+        });
+
+      if (error) throw error;
+      alert("Расположение сохранено в облаке!");
+    } catch (error: any) {
+      console.error("Ошибка сохранения:", error);
+      alert("Ошибка: " + error.message);
+    } finally {
+      setIsSaving(false);
     }
-    setIsSaving(false);
   };
 
   const onConnect = useCallback(
     (params: Connection | Edge) => setEdges((eds) => addEdge({ 
       ...params, 
+      type: 'step',
       style: { stroke: '#d4af37', strokeWidth: 2 },
     }, eds)),
     [setEdges]
@@ -84,22 +118,36 @@ const Tree = () => {
         onNodesChange={onNodesChange}
         onEdgesChange={onEdgesChange}
         onConnect={onConnect}
+        onNodeClick={(_, node) => node.data?.member && setSelectedMember(node.data.member)}
         fitView
       >
         <Background color="#dcd6cc" gap={40} />
         <Controls />
-        <Panel position="top-left" className="bg-white/95 p-4 border border-stone-200 shadow-xl rounded-2xl">
-            <h2 className="font-serif font-bold text-stone-800">Облачный архив</h2>
-            <p className="text-[10px] text-stone-500 mb-4 uppercase">Данные сохраняются навсегда</p>
+        <Panel position="top-left" className="bg-white/90 p-4 border border-stone-200 shadow-sm rounded-lg">
+            <h2 className="font-serif font-bold text-stone-800">Конструктор архива</h2>
             <button 
               onClick={saveToSupabase}
               disabled={isSaving}
-              className="w-full bg-amber-600 text-white text-sm font-bold py-3 px-6 rounded-xl hover:bg-amber-700 disabled:opacity-50"
+              className="mt-2 w-full bg-amber-600 text-white text-xs font-bold py-2 px-4 rounded hover:bg-amber-700 disabled:opacity-50"
             >
-              {isSaving ? "СОХРАНЯЮ..." : "ЗАФИКСИРОВАТЬ В БАЗЕ"}
+              {isSaving ? "СОХРАНЕНИЕ..." : "ЗАФИКСИРОВАТЬ В БАЗЕ"}
             </button>
         </Panel>
       </ReactFlow>
+
+      <Sheet open={!!selectedMember} onOpenChange={() => setSelectedMember(null)}>
+        <SheetContent className="bg-[#fdfaf5] overflow-y-auto">
+          {selectedMember && (
+            <div className="py-8 font-serif">
+                <h2 className="text-3xl text-stone-900">{selectedMember.name}</h2>
+                <p className="text-amber-700 italic text-xl mb-6">{selectedMember.years}</p>
+                <p className="text-lg text-stone-800 leading-relaxed">
+                  {selectedMember.bio || "Биография исследуется..."}
+                </p>
+            </div>
+          )}
+        </SheetContent>
+      </Sheet>
     </div>
   );
 };
