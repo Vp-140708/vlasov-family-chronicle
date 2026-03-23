@@ -1,30 +1,23 @@
-import React, { useMemo, useState, useCallback } from 'react';
-import ReactFlow, { 
-  Background, 
-  Controls, 
-  Edge, 
-  Node, 
-  useNodesState, 
-  useEdgesState, 
-  Panel,
-  applyNodeChanges,
-  OnNodesChange
-} from 'reactflow';
+import React, { useMemo, useState } from 'react';
+import ReactFlow, { Background, Controls, Edge, Node, useNodesState, useEdgesState, Panel } from 'reactflow';
 import 'reactflow/dist/style.css';
 import { familyMembers, FamilyMember } from '../data/familyData';
-import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from "@/components/ui/sheet";
+import { Sheet, SheetContent } from "@/components/ui/sheet";
 
 const Tree = () => {
   const [selectedMember, setSelectedMember] = useState<FamilyMember | null>(null);
 
-  // 1. Генерируем начальные позиции (теперь они временные)
   const { initialNodes, initialEdges } = useMemo(() => {
     const nodes: Node[] = [];
     const edges: Edge[] = [];
-    const Y_LEVEL = 300;
+    const Y_LEVEL = 350; 
 
-    familyMembers.forEach((m, index) => {
-      const xBase = m.branch === 'paternal' ? -400 : (m.branch === 'maternal' ? 400 : 0);
+    // 1. Сначала ставим людей
+    familyMembers.forEach((m) => {
+      let xBase = 0;
+      if (m.branch === 'paternal') xBase = -500;
+      if (m.branch === 'maternal') xBase = 500;
+      
       const genderShift = m.gender === 'm' ? -150 : 150;
 
       nodes.push({
@@ -32,22 +25,48 @@ const Tree = () => {
         data: { 
           member: m,
           label: (
-            <div className={`p-4 rounded-xl border-t-4 shadow-xl bg-white w-60 text-center border-b border-l border-r border-stone-200 cursor-grab active:cursor-grabbing ${
+            <div className={`p-4 rounded-xl border-t-4 shadow-xl bg-white w-60 text-center transition-all hover:scale-105 ${
               m.branch === 'paternal' ? 'border-t-blue-800' : (m.branch === 'maternal' ? 'border-t-emerald-800' : 'border-t-amber-600')
             }`}>
-              <div className="font-serif text-[9px] uppercase tracking-widest text-stone-400 mb-1">{m.title}</div>
-              <div className="font-serif font-bold text-base text-stone-900 leading-tight border-b border-stone-50 pb-1">{m.name}</div>
-              <div className="text-[10px] text-amber-700 font-serif italic mt-1">{m.years}</div>
+              <div className="font-serif font-bold text-slate-900 leading-tight">{m.name}</div>
+              <div className="text-xs text-amber-700 font-bold">{m.years}</div>
+              <div className="text-[9px] uppercase text-stone-400 mt-1">{m.title}</div>
             </div>
           )
         },
-        position: { x: xBase + genderShift + (index * 10), y: m.generation * Y_LEVEL },
-        draggable: true, // ВКЛЮЧАЕМ ВОЗМОЖНОСТЬ ДВИГАТЬ
+        position: { x: xBase + genderShift, y: m.generation * Y_LEVEL },
+        draggable: true,
       });
+    });
 
-      // Простые связи для начала (прямые, чтобы не путаться при движении)
-      if (m.fatherId) edges.push({ id: `e-f-${m.id}`, source: m.fatherId, target: m.id, style: { stroke: '#d4af37', strokeWidth: 2 }});
-      if (m.motherId) edges.push({ id: `e-m-${m.id}`, source: m.motherId, target: m.id, style: { stroke: '#d4af37', strokeWidth: 2 }});
+    // 2. Логика Т-связей через точки брака
+    const processedUnions = new Set();
+    familyMembers.forEach((m) => {
+      if (m.fatherId && m.motherId) {
+        const unionId = `u-${m.fatherId}-${m.motherId}`;
+        if (!processedUnions.has(unionId)) {
+          const fNode = nodes.find(n => n.id === m.fatherId);
+          const mNode = nodes.find(n => n.id === m.motherId);
+          
+          if (fNode && mNode) {
+            const ux = (fNode.position.x + mNode.position.x + 240) / 2;
+            const uy = fNode.position.y + 110;
+
+            nodes.push({
+              id: unionId,
+              data: { label: '' },
+              position: { x: ux, y: uy },
+              style: { width: 10, height: 10, borderRadius: '50%', background: '#d4af37', border: '2px solid #fff' },
+              type: 'default'
+            });
+
+            edges.push({ id: `e-${m.fatherId}`, source: m.fatherId, target: unionId, style: { stroke: '#d4af37', strokeWidth: 2 }});
+            edges.push({ id: `e-${m.motherId}`, source: m.motherId, target: unionId, style: { stroke: '#d4af37', strokeWidth: 2 }});
+            processedUnions.add(unionId);
+          }
+        }
+        edges.push({ id: `ec-${m.id}`, source: unionId, target: m.id, type: 'step', style: { stroke: '#d4af37', strokeWidth: 2 }});
+      }
     });
 
     return { initialNodes: nodes, initialEdges: edges };
@@ -55,15 +74,6 @@ const Tree = () => {
 
   const [nodes, setNodes, onNodesChange] = useNodesState(initialNodes);
   const [edges, setEdges, onEdgesChange] = useEdgesState(initialEdges);
-
-  // Функция для вывода координат в консоль (чтобы потом сохранить результат)
-  const logPositions = () => {
-    console.log("Новые координаты для familyData.ts:");
-    nodes.forEach(node => {
-      console.log(`${node.id}: { x: ${Math.round(node.position.x)}, y: ${Math.round(node.position.y)} }`);
-    });
-    alert("Координаты выведены в консоль браузера (F12)");
-  };
 
   return (
     <div className="w-full h-[calc(100vh-64px)] bg-[#f5f2ed]">
@@ -73,38 +83,29 @@ const Tree = () => {
         onNodesChange={onNodesChange}
         onNodeClick={(_, node) => node.data.member && setSelectedMember(node.data.member)}
         fitView
-        nodesDraggable={true} // РАЗРЕШАЕМ ТАСКАТЬ
-        panOnDrag={true}
       >
         <Background color="#dcd6cc" gap={40} />
         <Controls />
-        
-        <Panel position="top-left" className="bg-white/90 p-4 rounded-lg border border-stone-200 shadow-sm backdrop-blur-sm">
-            <h2 className="font-serif font-bold text-stone-800">Режим конструктора</h2>
-            <p className="text-[10px] uppercase text-stone-500 mb-4">Расставь людей как тебе удобно</p>
-            <button 
-              onClick={logPositions}
-              className="bg-amber-600 text-white text-xs px-3 py-2 rounded hover:bg-amber-700 transition-colors"
-            >
-              Сохранить положение
-            </button>
+        <Panel position="top-left" className="bg-white/90 p-4 border border-stone-200 shadow-sm rounded-lg">
+            <h2 className="font-serif font-bold text-stone-800">Архив Рода</h2>
+            <p className="text-[10px] text-stone-500 uppercase">Свободное перемещение включено</p>
         </Panel>
       </ReactFlow>
 
-      {/* Боковая панель (та же самая) */}
       <Sheet open={!!selectedMember} onOpenChange={() => setSelectedMember(null)}>
-        <SheetContent className="bg-[#fdfaf5] sm:max-w-lg overflow-y-auto">
+        <SheetContent className="bg-[#fdfaf5] border-l border-stone-200 overflow-y-auto sm:max-w-lg">
           {selectedMember && (
-            <div className="py-8">
-                <div className="text-center mb-8">
-                    <div className="w-24 h-24 bg-stone-100 rounded-full mx-auto flex items-center justify-center text-3xl font-serif text-stone-400 border-2 border-white shadow-lg">
-                        {selectedMember.name[0]}
-                    </div>
-                    <h2 className="text-3xl font-serif text-stone-900 mt-4">{selectedMember.name}</h2>
-                    <p className="text-amber-700 font-serif italic text-lg">{selectedMember.years}</p>
+            <div className="py-8 font-serif text-stone-800">
+                <div className="text-center mb-10">
+                  <div className="w-24 h-24 bg-stone-200 rounded-full mx-auto flex items-center justify-center text-3xl text-stone-400 border-2 border-white shadow-lg">
+                    {selectedMember.name[0]}
+                  </div>
+                  <h2 className="text-3xl mt-4 text-stone-900">{selectedMember.name}</h2>
+                  <p className="text-amber-700 italic text-xl">{selectedMember.years}</p>
                 </div>
-                <div className="space-y-6 font-serif text-stone-800 text-lg">
-                    <p>{selectedMember.bio || "Исследуем..."}</p>
+                <div className="space-y-6 text-lg leading-relaxed">
+                  <h4 className="text-xs uppercase tracking-widest text-stone-400 border-b pb-1">Биография</h4>
+                  <p>{selectedMember.bio || "Сведения из архивов обрабатываются..."}</p>
                 </div>
             </div>
           )}
