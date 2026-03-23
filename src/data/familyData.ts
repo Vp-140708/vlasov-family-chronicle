@@ -74,17 +74,18 @@ export const familyMembers: FamilyMember[] = [
   { id: "vasiliy_sh_sen", name: "Василий Шуплецов", years: "~1870", title: "Пра(x3)дед", branch: "maternal", bio: "", habits: [], medical: [], generation: 1, gender: "m", fatherId: "nikifor_sh" },
   { id: "ivan_s", name: "Иван Сандалов", years: "~1850", title: "Мещанин", branch: "maternal", bio: "", habits: [], medical: [], generation: 0, gender: "m" },
   { id: "andrey_s", name: "Андрей Сандалов", years: "~1880", title: "Портной / Николай II", branch: "maternal", bio: "", habits: [], medical: [], generation: 1, gender: "m", fatherId: "ivan_s" },
-  { id: "gadalka_c", name: "Жена Андрея (Гадалка)", years: "", title: "Ясновидящая", branch: "maternal", bio: "", habits: [], medical: [], generation: 1, gender: "f" },
+  { id: "gadalka_berez", name: "Мать Василия (Гадалка)", years: "", title: "Прапрапрабабушка", branch: "maternal", bio: "Мама Василия Березкина. Проживала в с. Цепочкино. Была известной на всю округу ясновидящей.", habits: [], medical: [], generation: 1, gender: "f", spouseId: "dmitriy_b"},
   { id: "pelageya_p", name: "Пелагея (тетя Поля)", years: "", title: "Повар (Мать Галины)", branch: "maternal", bio: "", habits: [], medical: [], generation: 1, gender: "f" },
   
-  { id: "ilya_v_m", name: "Илья Терентьевич Ведерников", years: "уб. 1916", title: "Унтер-офицер", branch: "maternal", bio: "", habits: [], medical: [], generation: 2, gender: "m", fatherId: "terentiy_v_m" },
+  { id: "ilya_v_m", name: "Илья Терентьевич Ведерников", years: "уб. 1916", title: "Унтер-офицер", branch: "maternal", bio: "Старший унтер-офицер. Герой ПМВ. Пропал без вести в 1914, вернулся в строй. Погиб 26.06.1916 в ходе Брусиловского прорыва. Его вдову взял в жены его брат Александр, чтобы спасти семью.", habits: [], medical: [], generation: 2, gender: "m", fatherId: "terentiy_v_m" },
+  { id: "alexander_v_bro", name: "Александр Терентьевич Ведерников", title: "Брат Ильи", branch: "maternal", bio: "После гибели брата Ильи взял в жены его вдову. У них было много детей. Жили в с. Мокино.", generation: 2, gender: "m", fatherId: "terentiy_v_m"},
   { id: "alexey_sh", name: "Алексей Васильевич Шуплецов", years: "1906-1953", title: "Рыбак", branch: "maternal", bio: "", habits: [], medical: [], generation: 2, gender: "m", fatherId: "vasiliy_sh_sen" },
   { id: "anna_ved", name: "Анна Ильинична Ведерникова", years: "1909-1996", title: "Хозяйка", branch: "maternal", bio: "", habits: [], medical: [], generation: 3, gender: "f", fatherId: "ilya_v_m" },
   { id: "dmitriy_b", name: "Дмитрий Березкин", years: "~1870", title: "Уржум", branch: "maternal", bio: "", habits: [], medical: [], generation: 1, gender: "m" },
   { id: "vasiliy_b", name: "Василий Березкин", years: "1908-1942", title: "Нач. лесопилки", branch: "maternal", bio: "Пропал на ВОВ.", habits: [], medical: [], generation: 2, gender: "m", fatherId: "dmitriy_b" },
   { id: "ivan_b_bro", name: "Иван Березкин", years: "1901-1941", title: "Погиб на ВОВ", branch: "maternal", bio: "", habits: [], medical: [], generation: 2, gender: "m", fatherId: "dmitriy_b" },
   { id: "mihail_b_bro", name: "Михаил Березкин", years: "1915-1943", title: "Погиб на ВОВ", branch: "maternal", bio: "", habits: [], medical: [], generation: 2, gender: "m", fatherId: "dmitriy_b" },
-  { id: "klavdiya_s", name: "Клавдия Андреевна Сандалова", years: "1913-1993", title: "Прабабушка", branch: "maternal", bio: "", habits: [], medical: [], generation: 2, gender: "f", fatherId: "andrey_s", motherId: "gadalka_c" },
+  { id: "klavdiya_s", name: "Клавдия Андреевна Сандалова", years: "1913-1993", title: "Прабабушка", branch: "maternal", bio: "", habits: [], medical: [], generation: 2, gender: "f", fatherId: "andrey_s", motherId: "gadalka_berez" },
 
   // Линия Королевых (С НИКОЛАЕМ И ИЛЬЕЙ)
   { id: "galina_k", name: "Галина Алексеевна Краснюк", years: "1929-2020", title: "Прабабушка", branch: "maternal", bio: "", habits: [], medical: [], generation: 2, gender: "f", motherId: "pelageya_p" },
