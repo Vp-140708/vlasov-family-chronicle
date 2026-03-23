@@ -11,12 +11,27 @@ import {
   type NodeMouseHandler,
 } from "@xyflow/react";
 import "@xyflow/react/dist/style.css";
+import dagre from "@dagrejs/dagre";
 import Navbar from "@/components/Navbar";
 import FamilyNode from "@/components/tree/FamilyNode";
 import MemberSheet from "@/components/tree/MemberSheet";
-import { familyMembers, type BranchType, type FamilyMember } from "@/data/familyData";
+import { familyMembers, type FamilyMember } from "@/data/familyData";
 
 type FilterType = "all" | "paternal" | "maternal";
+
+const NODE_WIDTH = 200;
+const NODE_HEIGHT = 120;
+
+const relationships: [string, string][] = [
+  ["igor", "pavel"],
+  ["anna", "pavel"],
+  ["igor", "petr"],
+  ["anna", "petr"],
+  ["aleksandr", "igor"],
+  ["olga", "igor"],
+  ["igor-sr", "anna"],
+  ["svetlana", "anna"],
+];
 
 const buildNodesAndEdges = (filter: FilterType) => {
   const filtered = familyMembers.filter((m) => {
@@ -26,47 +41,39 @@ const buildNodesAndEdges = (filter: FilterType) => {
 
   const ids = new Set(filtered.map((m) => m.id));
 
-  // Positions by generation
-  const genPositions: Record<number, { members: FamilyMember[] }> = {};
+  // Build dagre graph
+  const g = new dagre.graphlib.Graph();
+  g.setDefaultEdgeLabel(() => ({}));
+  g.setGraph({ rankdir: "TB", nodesep: 60, ranksep: 100, align: "UL" });
+
   filtered.forEach((m) => {
-    if (!genPositions[m.generation]) genPositions[m.generation] = { members: [] };
-    genPositions[m.generation].members.push(m);
+    g.setNode(m.id, { width: NODE_WIDTH, height: NODE_HEIGHT });
   });
 
-  const nodes: Node[] = [];
-
-  Object.entries(genPositions).forEach(([gen, { members }]) => {
-    const g = parseInt(gen);
-    const totalWidth = members.length * 220;
-    const startX = -totalWidth / 2 + 110;
-
-    members.forEach((m, i) => {
-      nodes.push({
-        id: m.id,
-        type: "familyNode",
-        position: { x: startX + i * 220, y: g * 220 },
-        data: {
-          name: m.name,
-          years: m.years,
-          title: m.title,
-          branch: m.branch,
-          memberId: m.id,
-        },
-      });
+  relationships
+    .filter(([from, to]) => ids.has(from) && ids.has(to))
+    .forEach(([from, to]) => {
+      g.setEdge(from, to);
     });
-  });
 
-  // Edges: parent-child relationships
-  const relationships: [string, string][] = [
-    ["igor", "pavel"],
-    ["anna", "pavel"],
-    ["igor", "petr"],
-    ["anna", "petr"],
-    ["aleksandr", "igor"],
-    ["olga", "igor"],
-    ["igor-sr", "anna"],
-    ["svetlana", "anna"],
-  ];
+  dagre.layout(g);
+
+  const nodes: Node[] = filtered.map((m) => {
+    const pos = g.node(m.id);
+    return {
+      id: m.id,
+      type: "familyNode",
+      position: { x: pos.x - NODE_WIDTH / 2, y: pos.y - NODE_HEIGHT / 2 },
+      draggable: false,
+      data: {
+        name: m.name,
+        years: m.years,
+        title: m.title,
+        branch: m.branch,
+        memberId: m.id,
+      },
+    };
+  });
 
   const edges: Edge[] = relationships
     .filter(([from, to]) => ids.has(from) && ids.has(to))
@@ -80,8 +87,8 @@ const buildNodesAndEdges = (filter: FilterType) => {
         id: `${from}-${to}`,
         source: from,
         target: to,
-        style: { stroke, strokeWidth: 2 },
-        type: "smoothstep",
+        style: { stroke, strokeWidth: 1.5 },
+        type: "default",
       };
     });
 
@@ -103,7 +110,6 @@ const Tree = () => {
   const [nodes, setNodes, onNodesChange] = useNodesState(builtNodes);
   const [edges, setEdges, onEdgesChange] = useEdgesState(builtEdges);
 
-  // Update nodes when filter changes
   useMemo(() => {
     const { nodes: n, edges: e } = buildNodesAndEdges(filter);
     setNodes(n);
@@ -128,7 +134,6 @@ const Tree = () => {
     <div className="min-h-screen bg-background">
       <Navbar />
       <div className="pt-20 h-screen flex flex-col">
-        {/* Header */}
         <motion.div
           initial={{ opacity: 0, y: 10 }}
           animate={{ opacity: 1, y: 0 }}
@@ -159,7 +164,6 @@ const Tree = () => {
           </div>
         </motion.div>
 
-        {/* Tree */}
         <div className="flex-1">
           <ReactFlow
             nodes={nodes}
@@ -168,6 +172,7 @@ const Tree = () => {
             onEdgesChange={onEdgesChange}
             onNodeClick={onNodeClick}
             nodeTypes={nodeTypes}
+            nodesDraggable={false}
             fitView
             fitViewOptions={{ padding: 0.3 }}
             proOptions={{ hideAttribution: true }}
