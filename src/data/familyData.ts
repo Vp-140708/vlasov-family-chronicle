@@ -10,6 +10,31 @@ export interface FamilyMember {
   habits: string[];
   medical: string[];
   generation: number;
+
+  // Родственные связи (из таблицы `family_members`)
+  mother_id?: string | null;
+  father_id?: string | null;
+  spouse_id?: string | null;
+
+  // Пол для терминов: "m" | "f"
+  gender?: "m" | "f" | string | null;
+
+  // Для карты (опционально)
+  map_locations?: Array<{
+    name?: string | null;
+    description?: string | null;
+    lat?: number | null;
+    lng?: number | null;
+    surnames?: string[] | null;
+  }> | null;
+  map_city?: string | null;
+  map_lat?: number | null;
+  map_lng?: number | null;
+  map_description?: string | null;
+  map_surnames?: string[] | null;
+
+  // Для артефактов (опционально)
+  photo_url?: string | null;
 }
 
 export const familyMembers: FamilyMember[] = [

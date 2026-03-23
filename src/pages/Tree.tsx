@@ -1,4 +1,4 @@
-import { useState, useCallback, useMemo } from "react";
+import { useEffect, useState, useCallback, useMemo } from "react";
 import { motion } from "framer-motion";
 import {
   ReactFlow,
@@ -15,28 +15,23 @@ import dagre from "@dagrejs/dagre";
 import Navbar from "@/components/Navbar";
 import FamilyNode from "@/components/tree/FamilyNode";
 import MemberSheet from "@/components/tree/MemberSheet";
-import { familyMembers, type FamilyMember } from "@/data/familyData";
+import type { FamilyMember, BranchType } from "@/data/familyData";
+import { fetchAllRelatives } from "@/lib/familyMembers";
+import { fetchAllRelationships, relationshipToEdge, type RelationshipRow } from "@/lib/relationships";
 
 type FilterType = "all" | "paternal" | "maternal";
 
 const NODE_WIDTH = 200;
 const NODE_HEIGHT = 120;
 
-const relationships: [string, string][] = [
-  ["igor", "pavel"],
-  ["anna", "pavel"],
-  ["igor", "petr"],
-  ["anna", "petr"],
-  ["aleksandr", "igor"],
-  ["olga", "igor"],
-  ["igor-sr", "anna"],
-  ["svetlana", "anna"],
-];
-
-const buildNodesAndEdges = (filter: FilterType) => {
-  const filtered = familyMembers.filter((m) => {
+const buildNodesAndEdges = (
+  filter: FilterType,
+  members: FamilyMember[],
+  relationships: RelationshipRow[]
+) => {
+  const filtered = members.filter((m) => {
     if (filter === "all") return true;
-    return m.branch === filter || m.branch === "both";
+    return (m.branch ?? "both") === filter || (m.branch ?? "both") === "both";
   });
 
   const ids = new Set(filtered.map((m) => m.id));
@@ -50,11 +45,14 @@ const buildNodesAndEdges = (filter: FilterType) => {
     g.setNode(m.id, { width: NODE_WIDTH, height: NODE_HEIGHT });
   });
 
-  relationships
-    .filter(([from, to]) => ids.has(from) && ids.has(to))
-    .forEach(([from, to]) => {
-      g.setEdge(from, to);
-    });
+  // Edges from `relationships` table: parent -> child (source -> target)
+  for (const r of relationships) {
+    const edge = relationshipToEdge(r);
+    if (!edge) continue;
+    if (ids.has(edge.sourceId) && ids.has(edge.targetId)) {
+      g.setEdge(edge.sourceId, edge.targetId);
+    }
+  }
 
   dagre.layout(g);
 
@@ -69,23 +67,26 @@ const buildNodesAndEdges = (filter: FilterType) => {
         name: m.name,
         years: m.years,
         title: m.title,
-        branch: m.branch,
+        branch: m.branch as BranchType,
         memberId: m.id,
       },
     };
   });
 
-  const edges: Edge[] = relationships
-    .filter(([from, to]) => ids.has(from) && ids.has(to))
-    .map(([from, to]) => {
-      return {
-        id: `${from}-${to}`,
-        source: from,
-        target: to,
-        style: { stroke: "hsl(43, 76%, 52%)", strokeWidth: 1 },
-        type: "straight",
-      };
+  const edges: Edge[] = [];
+  for (const r of relationships) {
+    const edge = relationshipToEdge(r);
+    if (!edge) continue;
+    if (!ids.has(edge.sourceId) || !ids.has(edge.targetId)) continue;
+
+    edges.push({
+      id: `${edge.sourceId}-${edge.targetId}`,
+      source: edge.sourceId,
+      target: edge.targetId,
+      style: { stroke: "hsl(43, 76%, 52%)", strokeWidth: 1 },
+      type: "straight",
     });
+  }
 
   return { nodes, edges };
 };
@@ -97,27 +98,84 @@ const Tree = () => {
   const [selectedMember, setSelectedMember] = useState<FamilyMember | null>(null);
   const [sheetOpen, setSheetOpen] = useState(false);
 
+  const [members, setMembers] = useState<FamilyMember[]>([]);
+  const [relationships, setRelationships] = useState<RelationshipRow[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  const [currentUserId, setCurrentUserId] = useState<string | null>(null);
+  const envCurrentUserId = (import.meta.env.VITE_CURRENT_USER_ID as string | undefined) || "";
+
+  useEffect(() => {
+    let mounted = true;
+    (async () => {
+      try {
+        setLoading(true);
+        const [rows, rels] = await Promise.all([fetchAllRelatives(), fetchAllRelationships()]);
+        const normalized: FamilyMember[] = rows.map((r) => ({
+          id: r.id,
+          name: r.name,
+          years: r.years ?? "",
+          title: r.title ?? "",
+          branch: (r.branch as BranchType) ?? "both",
+          bio: r.bio ?? "",
+          habits: r.habits ?? [],
+          medical: r.medical ?? [],
+          generation: r.generation ?? 0,
+          mother_id: r.mother_id ?? null,
+          father_id: r.father_id ?? null,
+          spouse_id: r.spouse_id ?? null,
+          gender: r.gender ?? null,
+          map_locations: r.map_locations ?? null,
+          map_city: r.map_city ?? null,
+          map_lat: r.map_lat ?? null,
+          map_lng: r.map_lng ?? null,
+          map_description: r.map_description ?? null,
+          map_surnames: r.map_surnames ?? null,
+          photo_url: r.photo_url ?? null,
+        }));
+
+        if (!mounted) return;
+        setMembers(normalized);
+        setRelationships(rels);
+
+        const picked =
+          envCurrentUserId.trim() ||
+          normalized.find((m) => m.generation === 0)?.id ||
+          normalized[0]?.id ||
+          null;
+        setCurrentUserId(picked);
+      } catch (e) {
+        // eslint-disable-next-line no-console
+        console.error("[Tree] Failed to load family_members:", e);
+      } finally {
+        if (mounted) setLoading(false);
+      }
+    })();
+    return () => {
+      mounted = false;
+    };
+  }, [envCurrentUserId]);
+
   const { nodes: builtNodes, edges: builtEdges } = useMemo(
-    () => buildNodesAndEdges(filter),
-    [filter]
+    () => buildNodesAndEdges(filter, members, relationships),
+    [filter, members, relationships]
   );
 
   const [nodes, setNodes, onNodesChange] = useNodesState(builtNodes);
   const [edges, setEdges, onEdgesChange] = useEdgesState(builtEdges);
 
-  useMemo(() => {
-    const { nodes: n, edges: e } = buildNodesAndEdges(filter);
-    setNodes(n);
-    setEdges(e);
-  }, [filter]);
+  useEffect(() => {
+    setNodes(builtNodes);
+    setEdges(builtEdges);
+  }, [builtNodes, builtEdges, setNodes, setEdges]);
 
   const onNodeClick: NodeMouseHandler = useCallback((_event, node) => {
-    const member = familyMembers.find((m) => m.id === (node.data as any).memberId);
+    const member = members.find((m) => m.id === (node.data as any).memberId);
     if (member) {
       setSelectedMember(member);
       setSheetOpen(true);
     }
-  }, []);
+  }, [members]);
 
   const filters: { label: string; value: FilterType; color: string }[] = [
     { label: "Все", value: "all", color: "bg-accent text-accent-foreground" },
@@ -160,6 +218,11 @@ const Tree = () => {
         </motion.div>
 
         <div className="flex-1">
+          {loading ? (
+            <div className="h-full flex items-center justify-center text-muted-foreground">
+              Загрузка генеалогических данных...
+            </div>
+          ) : (
           <ReactFlow
             nodes={nodes}
             edges={edges}
@@ -180,10 +243,17 @@ const Tree = () => {
               className="!bg-card !border-border !shadow-heritage [&>button]:!bg-card [&>button]:!border-border [&>button]:!text-foreground"
             />
           </ReactFlow>
+          )}
         </div>
       </div>
 
-      <MemberSheet member={selectedMember} open={sheetOpen} onOpenChange={setSheetOpen} />
+      <MemberSheet
+        member={selectedMember}
+        open={sheetOpen}
+        onOpenChange={setSheetOpen}
+        members={members}
+        currentUserId={currentUserId}
+      />
     </div>
   );
 };

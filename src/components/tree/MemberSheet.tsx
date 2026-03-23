@@ -1,12 +1,15 @@
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { User, Heart, Stethoscope, BookOpen, Users } from "lucide-react";
 import type { FamilyMember } from "@/data/familyData";
-import { getRelationship } from "@/lib/kinship";
+import { getKinshipStatus } from "@/lib/kinship";
+import { getFallbackBiography } from "@/data/biographies";
 
 interface MemberSheetProps {
   member: FamilyMember | null;
   open: boolean;
   onOpenChange: (open: boolean) => void;
+  members: FamilyMember[];
+  currentUserId: string | null;
 }
 
 const branchLabel: Record<string, string> = {
@@ -21,10 +24,12 @@ const branchColor: Record<string, string> = {
   both: "bg-accent text-accent-foreground",
 };
 
-const MemberSheet = ({ member, open, onOpenChange }: MemberSheetProps) => {
+const MemberSheet = ({ member, open, onOpenChange, members, currentUserId }: MemberSheetProps) => {
   if (!member) return null;
 
-  const relationship = getRelationship(member.id);
+  const relationship =
+    currentUserId && members.length ? getKinshipStatus(currentUserId, member.id, members) : "Родственник";
+  const bio = member.bio?.trim() ? member.bio : getFallbackBiography(member.name);
 
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
@@ -38,7 +43,7 @@ const MemberSheet = ({ member, open, onOpenChange }: MemberSheetProps) => {
               <SheetTitle className="font-display text-xl">{member.name}</SheetTitle>
               <p className="text-sm text-muted-foreground mt-0.5">{member.years}</p>
 
-              {/* Relationship badge */}
+              {/* Relationship status (under name) */}
               <div className="flex items-center justify-center gap-1.5 mt-2 mb-1">
                 <Users className="w-3.5 h-3.5 text-accent" />
                 <span className="text-sm font-medium text-accent">{relationship}</span>
@@ -58,7 +63,7 @@ const MemberSheet = ({ member, open, onOpenChange }: MemberSheetProps) => {
               <BookOpen className="w-4 h-4 text-accent" />
               <h3 className="font-display text-sm font-semibold text-foreground">Биография</h3>
             </div>
-            <p className="text-sm text-muted-foreground leading-relaxed">{member.bio}</p>
+            <p className="text-sm text-muted-foreground leading-relaxed">{bio ?? ""}</p>
           </div>
 
           {/* Habits */}
