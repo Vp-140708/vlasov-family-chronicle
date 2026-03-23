@@ -1,6 +1,7 @@
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
-import { User, Heart, Stethoscope, BookOpen } from "lucide-react";
+import { User, Heart, Stethoscope, BookOpen, Users } from "lucide-react";
 import type { FamilyMember } from "@/data/familyData";
+import { getRelationship } from "@/lib/kinship";
 
 interface MemberSheetProps {
   member: FamilyMember | null;
@@ -23,6 +24,8 @@ const branchColor: Record<string, string> = {
 const MemberSheet = ({ member, open, onOpenChange }: MemberSheetProps) => {
   if (!member) return null;
 
+  const relationship = getRelationship(member.id);
+
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
       <SheetContent className="overflow-y-auto bg-background border-border">
@@ -34,7 +37,14 @@ const MemberSheet = ({ member, open, onOpenChange }: MemberSheetProps) => {
             <div>
               <SheetTitle className="font-display text-xl">{member.name}</SheetTitle>
               <p className="text-sm text-muted-foreground mt-0.5">{member.years}</p>
-              <span className={`inline-block mt-2 text-xs px-3 py-1 rounded-full font-medium ${branchColor[member.branch]}`}>
+
+              {/* Relationship badge */}
+              <div className="flex items-center justify-center gap-1.5 mt-2 mb-1">
+                <Users className="w-3.5 h-3.5 text-accent" />
+                <span className="text-sm font-medium text-accent">{relationship}</span>
+              </div>
+
+              <span className={`inline-block mt-1 text-xs px-3 py-1 rounded-full font-medium ${branchColor[member.branch]}`}>
                 {branchLabel[member.branch]}
               </span>
             </div>
