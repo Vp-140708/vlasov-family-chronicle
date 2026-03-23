@@ -1,14 +1,11 @@
-import { useEffect } from "react";
+import { useEffect, useRef } from "react";
 import { motion } from "framer-motion";
-import { MapContainer, TileLayer, Marker, Popup } from "react-leaflet";
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
-import Navbar from "@/components/Navbar";
-
-// Fix default marker icons in bundled builds
 import markerIcon2x from "leaflet/dist/images/marker-icon-2x.png";
 import markerIcon from "leaflet/dist/images/marker-icon.png";
 import markerShadow from "leaflet/dist/images/marker-shadow.png";
+import Navbar from "@/components/Navbar";
 
 delete (L.Icon.Default.prototype as any)._getIconUrl;
 L.Icon.Default.mergeOptions({
@@ -64,11 +61,43 @@ const locations: FamilyLocation[] = [
 ];
 
 const MapPage = () => {
+  const mapRef = useRef<HTMLDivElement>(null);
+  const mapInstanceRef = useRef<L.Map | null>(null);
+
+  useEffect(() => {
+    if (!mapRef.current || mapInstanceRef.current) return;
+
+    const map = L.map(mapRef.current).setView([53.5, 38.0], 5);
+    mapInstanceRef.current = map;
+
+    L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+      attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OSM</a>',
+    }).addTo(map);
+
+    locations.forEach((loc) => {
+      const marker = L.marker([loc.lat, loc.lng]).addTo(map);
+      const badges = loc.surnames
+        .map((s) => `<span style="display:inline-block;font-size:10px;padding:2px 8px;border-radius:9999px;background:hsl(222,42%,30%);color:white;font-weight:500;">${s}</span>`)
+        .join(" ");
+      marker.bindPopup(
+        `<div style="max-width:240px;font-family:Inter,sans-serif;">
+          <p style="font-weight:600;font-size:14px;margin:0 0 4px;">${loc.name}</p>
+          <p style="font-size:12px;color:#666;margin:0 0 8px;">${loc.description}</p>
+          <div style="display:flex;gap:4px;flex-wrap:wrap;">${badges}</div>
+        </div>`
+      );
+    });
+
+    return () => {
+      map.remove();
+      mapInstanceRef.current = null;
+    };
+  }, []);
+
   return (
     <div className="min-h-screen bg-background">
       <Navbar />
       <div className="pt-20 h-screen flex flex-col">
-        {/* Header */}
         <motion.div
           initial={{ opacity: 0, y: 10 }}
           animate={{ opacity: 1, y: 0 }}
@@ -81,39 +110,8 @@ const MapPage = () => {
           </p>
         </motion.div>
 
-        {/* Map */}
         <div className="flex-1 relative z-0">
-          <MapContainer
-            center={[53.5, 38.0]}
-            zoom={5}
-            className="w-full h-full"
-            scrollWheelZoom={true}
-          >
-            <TileLayer
-              attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OSM</a>'
-              url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
-            />
-            {locations.map((loc) => (
-              <Marker key={loc.name} position={[loc.lat, loc.lng]}>
-                <Popup>
-                  <div className="font-body max-w-[240px]">
-                    <p className="font-display font-semibold text-sm mb-1">{loc.name}</p>
-                    <p className="text-xs text-gray-600 mb-2">{loc.description}</p>
-                    <div className="flex flex-wrap gap-1">
-                      {loc.surnames.map((s) => (
-                        <span
-                          key={s}
-                          className="text-[10px] px-2 py-0.5 rounded-full bg-blue-100 text-blue-800 font-medium"
-                        >
-                          {s}
-                        </span>
-                      ))}
-                    </div>
-                  </div>
-                </Popup>
-              </Marker>
-            ))}
-          </MapContainer>
+          <div ref={mapRef} className="w-full h-full" />
         </div>
       </div>
     </div>
