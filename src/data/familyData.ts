@@ -27,7 +27,7 @@ export const familyMembers: FamilyMember[] = [
   {
     id: "petr",
     name: "Пётр Власов",
-    years: "1998 – н.в.",
+    years: "2011 – н.в.",
     title: "Текущее поколение",
     branch: "both",
     bio: "Младший брат Павла. Помогает в сборе и систематизации семейных артефактов.",
