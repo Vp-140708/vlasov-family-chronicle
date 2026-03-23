@@ -95,23 +95,19 @@ const Tree = () => {
   const [selectedMember, setSelectedMember] = useState<FamilyMember | null>(null);
   const [sheetOpen, setSheetOpen] = useState(false);
 
-  const { nodes: initialNodes, edges: initialEdges } = useMemo(
+  const { nodes: builtNodes, edges: builtEdges } = useMemo(
     () => buildNodesAndEdges(filter),
     [filter]
   );
 
-  const [nodes, , onNodesChange] = useNodesState(initialNodes);
-  const [edges, , onEdgesChange] = useEdgesState(initialEdges);
+  const [nodes, setNodes, onNodesChange] = useNodesState(builtNodes);
+  const [edges, setEdges, onEdgesChange] = useEdgesState(builtEdges);
 
   // Update nodes when filter changes
   useMemo(() => {
     const { nodes: n, edges: e } = buildNodesAndEdges(filter);
-    onNodesChange(
-      n.map((node) => ({ type: "reset" as const, item: node }))
-    );
-    onEdgesChange(
-      e.map((edge) => ({ type: "reset" as const, item: edge }))
-    );
+    setNodes(n);
+    setEdges(e);
   }, [filter]);
 
   const onNodeClick: NodeMouseHandler = useCallback((_event, node) => {
