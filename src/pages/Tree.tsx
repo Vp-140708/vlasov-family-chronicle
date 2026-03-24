@@ -11,10 +11,16 @@ export default function Tree() {
   const [loading, setLoading] = useState(true);
 
   // Функция клика по узлу
-  const onNodeClick: NodeMouseHandler = useCallback((event, node) => {
-    // Находим данные человека в базе по ID узла
-    fetchPersonDetails(node.id);
-  }, []);
+  const onNodeClick = async (_: any, node: any) => {
+    // Ищем данные человека в таблице 'people' по ID узла
+    const { data } = await supabase
+      .from('people')
+      .select('*')
+      .eq('id', node.id)
+      .single();
+    
+    if (data) setSelectedPerson(data);
+  };
 
   async function fetchPersonDetails(id: string) {
     const { data } = await supabase.from('people').select('*').eq('id', id).single();
@@ -101,4 +107,5 @@ export default function Tree() {
       )}
     </div>
   );
+  
 }
