@@ -69,7 +69,28 @@ const Tree = () => {
       setEdges((eds) => eds.filter((e) => e.id !== edge.id));
     }
   },[setEdges]);
+  const getCategoryStyles = (cat: MemberCategory) => {
+    switch (cat) {
+      case "young": return "border-t-amber-400 bg-amber-50"; // Золотистый
+      case "parents": return "border-t-blue-400 bg-blue-50"; // Голубой
+      case "grandparents": return "border-t-emerald-400 bg-emerald-50"; // Зеленый
+      case "ww2": return "border-t-indigo-900 bg-indigo-50 text-indigo-900"; // Военный синий
+      case "ww1": return "border-t-red-800 bg-red-50 text-red-900"; // Имперский красный
+      case "peasant": return "border-t-orange-800 bg-orange-50"; // Коричневый
+      case "middle": return "border-t-slate-500 bg-slate-50"; // Серый
+      case "elite": return "border-t-purple-800 bg-purple-50"; // Пурпурный
+      default: return "border-t-stone-400 bg-white";
+    }
+  };
 
+  const renderNodeLabel = (m: FamilyMember) => (
+    <div className={`p-4 rounded-xl border-t-8 shadow-2xl w-64 text-center border-stone-200 transition-all hover:scale-105 ${getCategoryStyles(m.category)}`}>
+      <div className="font-serif text-[8px] uppercase tracking-[0.2em] opacity-60 mb-1">{m.category}</div>
+      <div className="font-serif font-bold text-lg leading-tight">{m.name}</div>
+      <div className="text-xs font-bold mt-1 opacity-80">{m.years}</div>
+      <div className="text-[10px] uppercase mt-2 font-medium opacity-60">{m.title}</div>
+    </div>
+  );
   return (
     <div className="w-full h-[calc(100vh-64px)] bg-[#f5f2ed]">
       <ReactFlow 
@@ -78,7 +99,22 @@ const Tree = () => {
         onConnect={onConnect} onEdgeClick={onEdgeClick} 
         deleteKeyCode={["Backspace", "Delete"]}
         onNodeClick={(_, node) => node.data?.member && setSelectedMember(node.data.member)} 
-        connectionLineType={ConnectionLineType.Bezier} fitView minZoom={0.01}
+        connectionLineType={ConnectionLineType.Bezier}
+        fitView
+        fitView={false} 
+        
+        // 2. Устанавливаем начальную позицию камеры (X, Y) и масштаб (zoom)
+        // X: 0 (центр), Y: 600 (уровень поколения дедов), Zoom: 0.8 (комфортный масштаб)
+        defaultViewport={{ x: 700, y: -150, zoom: 0.285 }} 
+        
+        // 3. Границы масштабирования
+        minZoom={0.05} // Позволяет отдалиться очень далеко
+        maxZoom={2}    // Позволяет приблизиться
+        
+        // 4. Управление
+        panOnDrag={true} // Перемещение зажатием мыши
+        zoomOnScroll={true} // Зум колесиком
+        nodesDraggable={true} // РАЗРЕШАЕМ ДВИГАТЬ КАРТОЧКИ (для расстановки)
       >
         <Background color="#dcd6cc" gap={40} />
         <Controls />
