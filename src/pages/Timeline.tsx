@@ -1,11 +1,9 @@
 import { motion } from "framer-motion";
-import Navbar from "@/components/Navbar";
 import { Clock } from "lucide-react";
 
 const Timeline = () => {
   return (
     <div className="min-h-screen bg-background">
-      <Navbar />
       <div className="pt-24 pb-16 px-6">
         <div className="container mx-auto max-w-5xl">
           <motion.div

@@ -1,7 +1,6 @@
 import { motion } from "framer-motion";
 import { Link } from "react-router-dom";
 import { Sword, Plane, Cross } from "lucide-react";
-import Navbar from "@/components/Navbar";
 import HeroSection from "@/components/HeroSection";
 import AncestorCard from "@/components/AncestorCard";
 import findingDress from "@/assets/finding-dress.jpg";
@@ -65,7 +64,6 @@ const chronicle = [
 const Index = () => {
   return (
     <div className="min-h-screen bg-background paper-bg">
-      <Navbar />
       <HeroSection />
 
       {/* Featured Ancestors */}
