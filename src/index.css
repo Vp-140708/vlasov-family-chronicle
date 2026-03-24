@@ -279,3 +279,49 @@ button:hover {
   stroke: #991b1b !important;
   stroke-dasharray: 5;
 }
+/* КАРТОЧКИ РОДА */
+.family-node {
+  border-radius: 2px !important;
+  background: white !important;
+  font-family: 'Playfair Display', serif;
+  width: 180px !important;
+  padding: 8px !important;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.08) !important;
+  border-width: 2px !important;
+}
+
+/* Цвета по сословиям */
+.node-military { border-color: #166534 !important; } /* Темно-зеленый */
+.node-religious { border-color: #b4945c !important; } /* Золотой */
+.node-peasant { border-color: #9a3412 !important; } /* Терракотовый */
+.node-noble { border-color: #1e3a8a !important; } /* Королевский синий */
+.node-standard { border-color: #57534e !important; }
+
+/* Закругленные золотые линии */
+.react-flow__edge-path {
+  stroke: #b4945c !important;
+  stroke-width: 1.5px;
+}
+
+/* Линия супругов - красная пунктирная */
+.edge-spouse path {
+  stroke: #b91c1c !important;
+  stroke-dasharray: 4;
+}
+/* Кровное родство — сплошная золотая нить */
+.edge-blood path {
+  stroke-opacity: 0.8;
+  transition: stroke-opacity 0.3s ease;
+}
+
+.edge-blood:hover path {
+  stroke-opacity: 1;
+  stroke-width: 3px !important;
+}
+
+/* Связь супругов — изящный красный пунктир */
+.edge-spouse path {
+  stroke: #991b1b !important;
+  stroke-dasharray: 6;
+  stroke-opacity: 0.6;
+}

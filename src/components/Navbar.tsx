@@ -1,9 +1,11 @@
+
 import { useState } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { Menu, X, TreeDeciduous, Image, Map, Clock, LogOut, MessageSquarePlus } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 
 const Navbar = () => {
+  
   const [isOpen, setIsOpen] = useState(false);
   const location = useLocation();
   const navigate = useNavigate();
