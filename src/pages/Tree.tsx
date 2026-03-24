@@ -8,7 +8,6 @@ import 'reactflow/dist/style.css';
 import { supabase } from '@/lib/supabase';
 import { Save, X, Search } from 'lucide-react';
 import dagre from '@dagrejs/dagre';
-import { useCallback } from 'react';
 const dagreGraph = new dagre.graphlib.Graph();
 dagreGraph.setDefaultEdgeLabel(() => ({}));
 
