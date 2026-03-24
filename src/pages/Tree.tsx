@@ -21,6 +21,12 @@ export default function Tree() {
     if (data) setSelectedPerson(data);
   }
 
+  const saveLayout = async () => {
+    const { error } = await supabase
+      .from('tree_layout')
+      .upsert({ id: 'main-tree', nodes, edges });
+    if (!error) alert("Положения зафиксированы в истории!");
+  };
   // ... (весь код loadFamilyData из предыдущего сообщения остается) ...
 
   return (

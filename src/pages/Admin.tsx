@@ -1,78 +1,56 @@
 import { useEffect, useState } from "react";
 import { supabase } from "@/lib/supabase";
-import { Check, Trash2, Clock, MessageSquare } from "lucide-react";
+import { Check, Trash2, Clock, User, MessageSquare } from "lucide-react";
 
 export default function Admin() {
-  const [suggestions, setSuggestions] = useState<any[]>([]);
+  const [items, setItems] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    fetchSuggestions();
+    fetchData();
   }, []);
 
-  async function fetchSuggestions() {
-    const { data } = await supabase
-      .from('suggestions')
-      .select('*')
-      .order('created_at', { ascending: false });
-    if (data) setSuggestions(data);
+  async function fetchData() {
+    const { data } = await supabase.from('suggestions').select('*').order('created_at', { ascending: false });
+    if (data) setItems(data);
     setLoading(false);
   }
 
-  async function updateStatus(id: string, status: string) {
-    await supabase.from('suggestions').update({ status }).eq('id', id);
-    fetchSuggestions();
+  async function handleAction(id: string, action: 'approve' | 'delete') {
+    if (action === 'approve') {
+      await supabase.from('suggestions').update({ status: 'approved' }).eq('id', id);
+    } else {
+      await supabase.from('suggestions').delete().eq('id', id);
+    }
+    fetchData();
   }
 
   return (
-    <div className="min-h-screen bg-[#fdf6e9] py-12 px-4 font-serif">
-      <div className="max-w-5xl mx-auto">
-        <h1 className="text-4xl text-stone-800 mb-10 border-b-2 border-[#b4945c] pb-4">Запросы на изменения</h1>
-        
-        <div className="space-y-6">
-          {suggestions.map((item) => (
-            <div key={item.id} className="bg-white p-6 rounded-lg border border-stone-200 shadow-sm flex flex-col md:flex-row justify-between gap-6">
+    <div className="min-h-screen bg-[#fdf6e9] p-8 font-serif">
+      <div className="max-w-4xl mx-auto">
+        <h1 className="text-3xl font-bold text-stone-800 mb-8 border-b-2 border-[#b4945c] pb-2">Кабинет Хранителя</h1>
+        <div className="space-y-4">
+          {items.map((item) => (
+            <div key={item.id} className="bg-white p-6 border border-[#b4945c]/30 shadow-sm rounded-lg flex justify-between items-start transition-all hover:shadow-md">
               <div className="flex-1">
-                <div className="flex items-center gap-3 mb-2">
-                  <span className={`px-3 py-1 rounded-full text-xs uppercase font-bold ${
-                    item.status === 'pending' ? 'bg-amber-100 text-amber-700' : 'bg-green-100 text-green-700'
-                  }`}>
-                    {item.status === 'pending' ? 'Ожидает' : 'Одобрено'}
+                <div className="flex items-center gap-4 mb-3">
+                  <span className={`text-[10px] uppercase font-bold px-2 py-1 rounded ${item.status === 'pending' ? 'bg-amber-100 text-amber-700' : 'bg-green-100 text-green-700'}`}>
+                    {item.status === 'pending' ? 'Новое' : 'Одобрено'}
                   </span>
-                  <span className="text-stone-400 text-sm flex items-center gap-1">
-                    <Clock size={14} /> {new Date(item.created_at).toLocaleDateString()}
-                  </span>
+                  <span className="text-stone-400 text-xs flex items-center gap-1"><Clock size={12}/> {new Date(item.created_at).toLocaleDateString()}</span>
                 </div>
-                <h3 className="text-xl font-bold text-stone-800 flex items-center gap-2">
-                  <MessageSquare size={18} className="text-[#b4945c]" /> {item.type}
-                </h3>
-                <p className="text-stone-600 mt-2 italic">"{item.content}"</p>
+                <h3 className="text-lg font-bold text-stone-800">{item.type}</h3>
+                <p className="text-stone-600 italic mt-2">"{item.content}"</p>
               </div>
-              
-              <div className="flex items-center gap-3">
+              <div className="flex gap-2 ml-4">
                 {item.status === 'pending' && (
-                  <button 
-                    onClick={() => updateStatus(item.id, 'approved')}
-                    className="p-3 bg-green-600 text-white rounded-full hover:bg-green-700 transition-colors"
-                    title="Одобрить"
-                  >
-                    <Check size={20} />
-                  </button>
+                  <button onClick={() => handleAction(item.id, 'approve')} className="p-2 bg-green-600 text-white rounded-full hover:bg-green-700 shadow-md transition-all"><Check size={18}/></button>
                 )}
-                <button 
-                  onClick={async () => {
-                    await supabase.from('suggestions').delete().eq('id', item.id);
-                    fetchSuggestions();
-                  }}
-                  className="p-3 bg-red-100 text-red-600 rounded-full hover:bg-red-200 transition-colors"
-                  title="Удалить"
-                >
-                  <Trash2 size={20} />
-                </button>
+                <button onClick={() => handleAction(item.id, 'delete')} className="p-2 bg-red-50 text-red-600 rounded-full hover:bg-red-100 transition-all"><Trash2 size={18}/></button>
               </div>
             </div>
           ))}
-          {suggestions.length === 0 && <p className="text-center text-stone-400 py-20">Новых предложений пока нет.</p>}
+          {items.length === 0 && !loading && <p className="text-center text-stone-400 mt-20">Пока запросов не поступало...</p>}
         </div>
       </div>
     </div>
