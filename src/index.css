@@ -97,3 +97,25 @@
     z-index: 0;
   }
 }
+@import url('https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,700;1,400&family=Montserrat:wght@300;400;600&display=swap');
+
+body {
+  @apply bg-[#fdf6e9] text-stone-900;
+  font-family: 'Montserrat', sans-serif;
+  /* Текстура бумаги на весь сайт */
+  background-image: url('https://www.transparenttextures.com/patterns/cream-paper.png');
+}
+
+h1, h2, h3, h4, .font-serif {
+  font-family: 'Playfair Display', serif;
+}
+
+/* Золотые акценты для всего сайта */
+.text-gold { color: #b4945c; }
+.bg-gold { border-color: #b4945c; }
+.border-gold { border-color: #b4945c; }
+
+/* Красивый скроллбар под стиль */
+::-webkit-scrollbar { width: 8px; }
+::-webkit-scrollbar-track { background: #fdf6e9; }
+::-webkit-scrollbar-thumb { background: #b4945c; border-radius: 10px; }
