@@ -36,6 +36,7 @@ const App = () => (
             <Route path="/map" element={<MapPage />} />
             <Route path="/timeline" element={<Timeline />} />
             <Route path="/suggest" element={<Suggest />} /> {/* ДОБАВЬ ЭТУ СТРОКУ */}
+            <Route path="/admin" element={<Admin />} />
           </Route>
 
           <Route path="*" element={<NotFound />} />
