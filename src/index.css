@@ -325,3 +325,65 @@ button:hover {
   stroke-dasharray: 6;
   stroke-opacity: 0.6;
 }
+/* КАРТОЧКИ: Архивный стиль */
+.family-node {
+  background: #fffcf5 !important; /* Цвет старой бумаги */
+  border: 1.5px solid #b4945c !important; /* Тонкое золото */
+  border-radius: 2px !important;
+  font-family: 'Playfair Display', serif !important;
+  color: #1c1917 !important;
+  padding: 10px !important;
+  width: 200px !important;
+  box-shadow: 0 4px 10px rgba(0,0,0,0.05) !important;
+  transition: transform 0.2s ease, box-shadow 0.2s ease !important;
+}
+
+.family-node:hover {
+  transform: scale(1.03);
+  box-shadow: 0 8px 20px rgba(180, 148, 92, 0.2) !important;
+}
+
+/* Цвета по сословиям (тонкие полоски сверху) */
+.node-military { border-top: 4px solid #166534 !important; }
+.node-religious { border-top: 4px solid #b4945c !important; }
+.node-peasant { border-top: 4px solid #9a3412 !important; }
+.node-noble { border-top: 4px solid #1e3a8a !important; }
+
+/* СОЕДИНЕНИЯ: Золотые нити */
+.react-flow__edge-path {
+  stroke: #b4945c !important; /* Золотой цвет */
+  stroke-width: 1.5px !important; /* Тонкая линия */
+}
+
+/* Линия супругов: Тонкий красный пунктир */
+.edge-spouse path {
+  stroke: #991b1b !important;
+  stroke-dasharray: 4 !important;
+  stroke-width: 1px !important;
+}
+
+/* Убираем черные квадраты (лейблы на линиях) */
+.react-flow__edge-textbg {
+  fill: #fffcf5 !important;
+}
+.react-flow__edge-text {
+  fill: #b4945c !important;
+  font-size: 10px !important;
+}
+.family-node {
+  background: white !important;
+  border: 2px solid #b4945c !important;
+  border-radius: 8px !important; /* Скругленные как на рисунке */
+  padding: 15px !important;
+  width: 220px !important;
+  text-align: center;
+  box-shadow: 0 10px 25px rgba(0,0,0,0.05) !important;
+}
+
+/* Скрываем точки подключения линий, чтобы не мусорили вид */
+.react-flow__handle {
+  width: 8px !important;
+  height: 8px !important;
+  background: #b4945c !important;
+  border: 2px solid white !important;
+}
