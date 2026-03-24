@@ -13,6 +13,7 @@ import Timeline from "./pages/Timeline";
 import NotFound from "./pages/NotFound";
 import Login from "./pages/Login"; // Наша новая страница входа
 import Suggest from "./pages/Suggest";
+import Admin from "./pages/Admin";
 // Импортируем компонент защиты
 import ProtectedRoute from "./components/ProtectedRoute";
 
