@@ -7,14 +7,68 @@ import ReactFlow, {
 import 'reactflow/dist/style.css';
 import { supabase } from '@/lib/supabase';
 import { Save, X, Search } from 'lucide-react';
+import dagre from '@dagrejs/dagre';
+import { useCallback } from 'react';
+const dagreGraph = new dagre.graphlib.Graph();
+dagreGraph.setDefaultEdgeLabel(() => ({}));
 
+const getLayoutedElements = (nodes: any[], edges: any[]) => {
+  // Настройки сетки (можете потом менять эти цифры, если захотите сделать шире/уже)
+  dagreGraph.setGraph({
+    rankdir: 'TB', // сверху вниз
+    nodesep: 80,   // отступ по горизонтали (между братьями/сестрами)
+    ranksep: 120   // отступ по вертикали (между поколениями)
+  });
+
+  nodes.forEach((node) => {
+    // Ищем ваши "сердечки". Обычно в Lovable их id или type содержит слово union/marriage/heart
+    // Если "сердечки" выстроятся как огромные карточки, просто поменяйте 'union' на ваш тип узла
+    const isUnion = node.type === 'union' || (typeof node.id === 'string' && node.id.includes('union'));
+
+    dagreGraph.setNode(node.id, {
+      width: isUnion ? 40 : 280,   // 280 - примерная ширина вашей карточки с человеком
+      height: isUnion ? 40 : 100   // 100 - примерная высота
+    });
+  });
+
+  edges.forEach((edge) => {
+    dagreGraph.setEdge(edge.source, edge.target);
+  });
+
+  dagre.layout(dagreGraph);
+
+  const newNodes = nodes.map((node) => {
+    const nodeWithPosition = dagreGraph.node(node.id);
+    const isUnion = node.type === 'union' || (typeof node.id === 'string' && node.id.includes('union'));
+    const w = isUnion ? 40 : 280;
+    const h = isUnion ? 40 : 100;
+
+    return {
+      ...node,
+      position: {
+        x: nodeWithPosition.x - w / 2,
+        y: nodeWithPosition.y - h / 2,
+      },
+    };
+  });
+
+  return { nodes: newNodes, edges };
+};
 const TreeContent = () => {
   const [nodes, setNodes] = useState<Node[]>([]);
   const [edges, setEdges] = useState<Edge[]>([]);
   const [selected, setSelected] = useState<any>(null);
   const [searchQuery, setSearchQuery] = useState("");
   const { setViewport, getViewport, setCenter } = useReactFlow();
-
+  // Вставляем функцию-обработчик
+  const onLayout = useCallback(() => {
+    const { nodes: layoutedNodes, edges: layoutedEdges } = getLayoutedElements(
+      nodes,
+      edges
+    );
+    setNodes([...layoutedNodes]);
+    setEdges([...layoutedEdges]);
+  }, [nodes, edges, setNodes, setEdges]);
   const fetchData = useCallback(async () => {
     const { data: people } = await supabase.from('people').select('*');
     const { data: relations } = await supabase.from('family_edges').select('*');
@@ -102,6 +156,12 @@ const TreeContent = () => {
         />
         <button onClick={onSave} className="flex items-center gap-2 px-6 py-2 bg-[#b4945c] text-white rounded-md shadow-lg font-serif uppercase text-[10px] tracking-widest font-bold">
           <Save size={14} /> Сохранить расстановку
+        </button>
+        <button
+          onClick={onLayout}
+          className="bg-gray-800 text-white px-4 py-2 rounded font-medium shadow-md hover:bg-gray-700 transition"
+        >
+          ✨ ВЫРОВНЯТЬ ДЕРЕВО
         </button>
       </div>
 
