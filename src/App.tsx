@@ -14,6 +14,7 @@ import NotFound from "./pages/NotFound";
 import Login from "./pages/Login"; // Наша новая страница входа
 import Suggest from "./pages/Suggest";
 import Admin from "./pages/Admin";
+import Migrate from "./pages/Migrate";
 // Импортируем компонент защиты
 import ProtectedRoute from "./components/ProtectedRoute";
 
@@ -33,6 +34,7 @@ const App = () => (
           <Route element={<ProtectedRoute />}>
             <Route path="/" element={<Index />} />
             <Route path="/tree" element={<Tree />} />
+            <Route path="/migrate" element={<Migrate />} />
             <Route path="/artifacts" element={<Artifacts />} />
             <Route path="/map" element={<MapPage />} />
             <Route path="/timeline" element={<Timeline />} />

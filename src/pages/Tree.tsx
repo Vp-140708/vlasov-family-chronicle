@@ -1,154 +1,108 @@
 import { useEffect, useState, useCallback } from 'react';
-import ReactFlow, { Background, Controls, Edge, Node, NodeMouseHandler } from 'reactflow';
+import ReactFlow, { Background, Controls, MiniMap, ReactFlowProvider, Node, Edge } from 'reactflow';
 import 'reactflow/dist/style.css';
 import { supabase } from '@/lib/supabase';
-import { User, X, Calendar, Music } from 'lucide-react';
+import { X, Calendar, User, Info } from 'lucide-react';
 
 export default function Tree() {
   const [nodes, setNodes] = useState<Node[]>([]);
   const [edges, setEdges] = useState<Edge[]>([]);
   const [selectedPerson, setSelectedPerson] = useState<any>(null);
-  const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
-    loadFamilyData();
-  }, []);
+  const loadTree = async () => {
+    // Тянем данные из двух таблиц
+    const { data: people } = await supabase.from('people').select('*');
+    const { data: relations } = await supabase.from('family_edges').select('*');
 
-  const loadFamilyData = async () => {
-    setLoading(true);
-    const { data: people, error } = await supabase.from('people').select('*');
-
-    if (error) {
-      console.error("Ошибка загрузки:", error);
-      setLoading(false);
-      return;
-    }
-
-    if (people) {
-      const flowNodes: Node[] = people.map((person, index) => ({
-        id: person.id,
-        position: { x: index * 250, y: person.father_id ? 300 : 50 },
-        data: {
+    if (people && relations) {
+      setNodes(people.map(p => ({
+        id: p.id,
+        position: { x: p.x_pos, y: p.y_pos },
+        data: { 
           label: (
-            <div className="text-center p-2 font-serif">
-              <div className="w-10 h-10 bg-[#b4945c] rounded-full flex items-center justify-center mx-auto mb-2 text-white">
-                <User size={20} />
+            <div className="group relative">
+              <div className="font-bold text-[11px] leading-tight">{p.full_name}</div>
+              <div className="text-[9px] text-[#b4945c] mt-1 italic">{p.info_label}</div>
+              <div className="absolute -top-1 -right-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                <Info size={10} className="text-[#b4945c]" />
               </div>
-              <div className="font-bold text-stone-800">{person.full_name}</div>
-              <div className="text-[10px] text-[#b4945c]">{person.birth_date} — {person.death_date || 'н.в.'}</div>
             </div>
-          ),
+          ) 
         },
-        style: {
-          background: '#fff',
-          border: '2px solid #b4945c',
-          borderRadius: '8px',
-          width: 200,
-          boxShadow: '0 4px 10px rgba(0,0,0,0.1)',
-        },
-      }));
+        className: 'vintage-node' // Стиль пропишем в CSS
+      })));
 
-      const flowEdges: Edge[] = [];
-      people.forEach((person) => {
-        if (person.father_id) {
-          flowEdges.push({
-            id: `e-${person.father_id}-${person.id}`,
-            source: person.father_id,
-            target: person.id,
-            animated: true,
-            style: { stroke: '#b4945c', strokeWidth: 2 },
-          });
-        }
-        if (person.mother_id) {
-          flowEdges.push({
-            id: `e-${person.mother_id}-${person.id}`,
-            source: person.mother_id,
-            target: person.id,
-            animated: true,
-            style: { stroke: '#b4945c', strokeWidth: 2 },
-          });
-        }
-      });
-
-      setNodes(flowNodes);
-      setEdges(flowEdges);
+      setEdges(relations.map(r => ({
+        id: r.id,
+        source: r.source_id,
+        target: r.target_id,
+        label: r.label,
+        type: 'smoothstep',
+        animated: false,
+        style: { stroke: '#b4945c', strokeWidth: 1.5, opacity: 0.6 }
+      })));
     }
-    setLoading(false);
   };
+  const flowEdges = relations.map(r => ({
+    id: r.id,
+    source: r.source_id,
+    target: r.target_id,
+    label: r.label,
+    type: 'smoothstep',
+    className: r.label === 'супруги' ? 'edge-spouse' : '',
+    style: { stroke: '#b4945c' }
+  }));
 
-  const onNodeClick: NodeMouseHandler = useCallback(async (event, node) => {
+  useEffect(() => { loadTree(); }, []);
+
+  const onNodeClick = async (_: any, node: any) => {
     const { data } = await supabase.from('people').select('*').eq('id', node.id).single();
     if (data) setSelectedPerson(data);
-  }, []);
-
-  if (loading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-[#fdf6e9] font-serif">
-        <div className="text-[#b4945c] animate-pulse text-2xl">Разворачиваем свитки рода...</div>
-      </div>
-    );
-  }
+  };
 
   return (
-    <div className="h-[90vh] w-full bg-[#fdf6e9] relative">
-      <div className="absolute top-20 left-1/2 -translate-x-1/2 z-10 text-center pointer-events-none">
-        <h1 className="text-4xl font-serif text-stone-800 mb-2">Генеалогическое древо</h1>
-        <div className="w-24 h-1 bg-[#b4945c] mx-auto" />
-      </div>
-
-      <ReactFlow nodes={nodes} edges={edges} onNodeClick={onNodeClick} fitView>
-        <Background color="#b4945c" gap={20} size={1} />
+    <div className="h-screen w-full bg-[#fdf6e9] relative">
+      <ReactFlow
+        nodes={nodes}
+        edges={edges}
+        onNodeClick={onNodeClick}
+        fitView
+        minZoom={0.05} // Чтобы видеть всё огромное дерево сразу
+      >
+        <Background color="#b4945c" gap={40} size={1} opacity={0.1} />
         <Controls />
+        <MiniMap nodeColor="#b4945c" maskColor="rgba(253, 246, 233, 0.8)" />
       </ReactFlow>
 
-      {/* Личное дело при клике */}
+      {/* Личное дело (Модалка) */}
       {selectedPerson && (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
-          <div className="relative w-full max-w-2xl bg-[#fdf6e9] border-2 border-[#b4945c] shadow-2xl rounded-sm overflow-hidden animate-in fade-in zoom-in duration-300">
-            <button
-              onClick={() => setSelectedPerson(null)}
-              className="absolute top-4 right-4 p-2 text-stone-400 hover:text-stone-800 transition-colors z-10"
-            >
-              <X size={24} />
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/40 backdrop-blur-md">
+          <div className="bg-[#fdf6e9] border-2 border-[#b4945c] w-full max-w-3xl shadow-2xl rounded-sm p-0 flex flex-col md:flex-row overflow-hidden animate-in zoom-in duration-300">
+            <button onClick={() => setSelectedPerson(null)} className="absolute top-4 right-4 z-20 hover:rotate-90 transition-transform">
+              <X size={24} className="text-stone-400" />
             </button>
+            
+            <div className="w-full md:w-2/5 bg-stone-200 aspect-square md:aspect-auto">
+              <img 
+                src={selectedPerson.photo_url || "https://images.unsplash.com/photo-1550684848-fac1c5b4e853?q=80&w=2070"} 
+                className="w-full h-full object-cover grayscale-[40%] hover:grayscale-0 transition-all duration-1000" 
+              />
+            </div>
 
-            <div className="flex flex-col md:flex-row">
-              <div className="w-full md:w-1/3 bg-stone-200 aspect-[3/4]">
-                <img
-                  src={selectedPerson.photo_url || 'https://images.unsplash.com/photo-1550684848-fac1c5b4e853?q=80&w=2070'}
-                  className="w-full h-full object-cover grayscale-[30%]"
-                  alt={selectedPerson.full_name}
-                />
+            <div className="p-10 flex-1 font-serif relative">
+              <span className="text-[#b4945c] uppercase tracking-[0.3em] text-[10px] font-bold">Семейный архив</span>
+              <h2 className="text-4xl text-stone-800 mt-4 mb-2">{selectedPerson.full_name}</h2>
+              <p className="text-[#b4945c] italic mb-8 border-b border-[#b4945c]/20 pb-4">{selectedPerson.info_label}</p>
+              
+              <div className="text-stone-600 leading-relaxed text-sm h-48 overflow-y-auto pr-4 custom-scrollbar">
+                {selectedPerson.biography || "Биография этого предка находится в процессе восстановления по архивным документам..."}
               </div>
 
-              <div className="p-8 flex-1 font-serif">
-                <span className="text-[#b4945c] uppercase tracking-widest text-xs font-bold">Личное дело</span>
-                <h2 className="text-3xl text-stone-800 mt-2 mb-4 font-bold">{selectedPerson.full_name}</h2>
-
-                <div className="space-y-4 text-stone-600">
-                  <div className="flex items-center gap-2">
-                    <Calendar size={16} className="text-[#b4945c]" />
-                    <span>
-                      {selectedPerson.birth_date} — {selectedPerson.death_date || 'н.в.'}
-                    </span>
-                  </div>
-
-                  <p className="italic leading-relaxed">{selectedPerson.biography || 'Биография в процессе исследования...'}</p>
-
-                  {selectedPerson.audio_url && (
-                    <div className="mt-6 p-4 bg-white/50 border border-[#b4945c]/20 rounded-lg">
-                      <div className="flex items-center gap-2 mb-2 text-[#b4945c] font-bold text-xs uppercase">
-                        <Music size={14} /> Голос предка
-                      </div>
-                      <audio controls className="w-full h-8">
-                        <source src={selectedPerson.audio_url} type="audio/mpeg" />
-                      </audio>
-                    </div>
-                  )}
-                </div>
+              {/* Золотая печать в углу */}
+              <div className="absolute bottom-6 right-6 w-16 h-16 border border-[#b4945c]/30 rounded-full flex items-center justify-center rotate-12">
+                <span className="text-[#b4945c] text-[8px] uppercase text-center font-bold">Архив<br/>Власовых</span>
               </div>
             </div>
-            <div className="h-2 bg-[#b4945c]" />
           </div>
         </div>
       )}
