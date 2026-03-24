@@ -63,7 +63,7 @@ const chronicle = [
 
 const Index = () => {
   return (
-    <div className="min-h-screen bg-background paper-bg">
+    <div className="min-h-screen bg-[#fdf6e9] bg-[url('https://www.transparenttextures.com/patterns/cream-paper.png')]">
       <HeroSection />
 
       {/* Featured Ancestors */}
@@ -209,7 +209,7 @@ const Index = () => {
       <footer className="relative z-10 border-t border-border py-8 text-center">
         <div className="w-8 h-px bg-accent mx-auto mb-4" />
         <p className="text-xs text-muted-foreground tracking-wide">
-          Vlasov Heritage · Приватный семейный архив
+          Vlasov Heritage · Приватный семейный а рхив
         </p>
       </footer>
     </div>

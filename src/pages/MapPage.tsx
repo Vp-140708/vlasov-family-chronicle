@@ -1,97 +1,83 @@
 import { MapContainer, TileLayer, Marker, Popup } from 'react-leaflet';
 import 'leaflet/dist/leaflet.css';
-import { Icon } from 'leaflet';
+import L from 'leaflet';
 
-// Исправление бага с пропадающими иконками в React Leaflet
+// Исправление иконок
 import markerIcon2x from 'leaflet/dist/images/marker-icon-2x.png';
 import markerIcon from 'leaflet/dist/images/marker-icon.png';
 import markerShadow from 'leaflet/dist/images/marker-shadow.png';
 
-const customIcon = new Icon({
+// @ts-ignore
+delete (L.Icon.Default.prototype as any)._getIconUrl;
+L.Icon.Default.mergeOptions({
   iconUrl: markerIcon,
   iconRetinaUrl: markerIcon2x,
   shadowUrl: markerShadow,
-  iconSize: [25, 41],
-  iconAnchor:[12, 41]
 });
 
-// Тестовые данные (позже мы подключим их из базы данных Supabase)
-const familyLocations =[
-  { 
-    id: 1, 
-    name: "Иван Власов (Прадед)", 
-    event: "Рождение", 
-    year: "1890",
-    lat: 55.7558, 
-    lng: 37.6173, 
-    desc: "Родился в Московской губернии. Здесь началась наша история." 
-  },
-  { 
-    id: 2, 
-    name: "Анна Власова", 
-    event: "Переезд", 
-    year: "1932",
-    lat: 59.9343, 
-    lng: 30.3351, 
-    desc: "Переехала в Ленинград для учебы в университете." 
-  },
-  { 
-    id: 3, 
-    name: "Михаил Власов", 
-    event: "Место службы", 
-    year: "1943",
-    lat: 48.7071, 
-    lng: 44.5169, 
-    desc: "Участвовал в обороне Сталинграда. Награжден медалью." 
-  }
+const familyPoints = [
+  { id: 1, name: "Иван Власов", event: "Рождение", pos: [55.7558, 37.6173] as [number, number], year: "1890" },
+  { id: 2, name: "Николай Тороцко", event: "Служба", pos: [59.9343, 30.3351] as [number, number], year: "1915" },
 ];
 
 export default function MapPage() {
   return (
-    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 md:py-12">
-      <div className="mb-8">
-        <h1 className="text-3xl md:text-4xl font-serif font-bold text-stone-800 mb-4">
-          Карта путей предков
-        </h1>
-        <p className="text-stone-600 max-w-2xl">
-          Здесь отмечены ключевые места жизни нашей семьи: где рождались, жили, воевали и работали наши предки. Нажмите на метку, чтобы узнать подробности.
-        </p>
-      </div>
+    <div className="min-h-screen bg-[#fdf6e9] py-12 px-4">
+      <div className="max-w-6xl mx-auto">
+        
+        {/* Заголовок в твоем стиле */}
+        <div className="text-center mb-10">
+          <span className="text-[#b4945c] uppercase tracking-[0.4em] text-xs font-bold block mb-4">География рода</span>
+          <h1 className="text-4xl md:text-5xl font-serif text-stone-800">Карта памяти</h1>
+          <div className="w-24 h-1 bg-[#b4945c] mx-auto mt-6" />
+        </div>
 
-      <div className="bg-white p-2 rounded-2xl shadow-sm border border-stone-200">
-        <div className="rounded-xl overflow-hidden" style={{ height: '65vh', minHeight: '400px' }}>
-          {/* center - это координаты центра карты при загрузке. Сейчас это центр европейской части */}
-          <MapContainer 
-            center={[54.0, 39.0]} 
-            zoom={5} 
-            style={{ height: '100%', width: '100%' }}
-            scrollWheelZoom={true}
-          >
-            {/* Это сама картинка карты (Тайлы) от OpenStreetMap, она бесплатная */}
-            <TileLayer
-              attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
-              url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
-            />
-            
-            {/* Рисуем метки из нашего массива */}
-            {familyLocations.map((loc) => (
-              <Marker key={loc.id} position={[loc.lat, loc.lng]} icon={customIcon}>
-                <Popup className="font-sans">
-                  <div className="p-1">
-                    <div className="text-xs font-bold text-stone-400 uppercase tracking-wider mb-1">
-                      {loc.year} • {loc.event}
+        {/* Контейнер для карты с золотой рамой */}
+        <div className="relative p-3 md:p-6 bg-white border border-[#b4945c]/30 shadow-2xl rounded-sm">
+          {/* Декоративные уголки */}
+          <div className="absolute top-0 left-0 w-16 h-16 border-t-4 border-l-4 border-[#b4945c] -translate-x-2 -translate-y-2 z-20" />
+          <div className="absolute bottom-0 right-0 w-16 h-16 border-b-4 border-r-4 border-[#b4945c] translate-x-2 translate-y-2 z-20" />
+
+          <div className="relative h-[70vh] w-full overflow-hidden border border-stone-200">
+            <MapContainer 
+              center={[57.0, 35.0]} 
+              zoom={5} 
+              style={{ height: '100%', width: '100%', background: '#f4ede1' }}
+            >
+              <TileLayer
+                attribution='&copy; OpenStreetMap'
+                url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+                // Накладываем фильтр сепии прямо на тайлы карты, чтобы она выглядела как старая бумага
+                eventHandlers={{
+                  add: (e) => {
+                    e.target.getContainer().style.filter = 'sepia(80%) contrast(90%) brightness(95%) hue-rotate(-20deg)';
+                  }
+                }}
+              />
+              
+              {familyPoints.map(point => (
+                <Marker key={point.id} position={point.pos}>
+                  <Popup>
+                    <div className="font-serif p-1">
+                      <span className="text-[#b4945c] font-bold text-xs">{point.year}</span>
+                      <h3 className="text-lg font-bold text-stone-800">{point.name}</h3>
+                      <p className="text-stone-600 text-sm">{point.event}</p>
                     </div>
-                    <h3 className="text-lg font-serif font-bold text-stone-800 mb-1">
-                      {loc.name}
-                    </h3>
-                    <p className="text-sm text-stone-600 mt-2">
-                      {loc.desc}
-                    </p>
-                  </div>
-                </Popup>
-              </Marker>
-            ))}
-          </MapContainer>
+                  </Popup>
+                </Marker>
+              ))}
+            </MapContainer>
+          </div>
+        </div>
+
+        {/* Легенда под картой */}
+        <div className="mt-12 grid grid-cols-1 md:grid-cols-3 gap-6">
+          <div className="bg-white/50 p-6 border-l-4 border-[#b4945c] rounded-r-xl">
+            <h4 className="font-serif font-bold text-stone-800 uppercase text-xs tracking-widest mb-2">Инструкция</h4>
+            <p className="font-serif text-sm text-stone-600 leading-relaxed">
+              Используйте колесо мыши для масштабирования. Нажимайте на золотые маркеры, чтобы открыть историю места.
+            </p>
+          </div>
         </div>
       </div>
     </div>
