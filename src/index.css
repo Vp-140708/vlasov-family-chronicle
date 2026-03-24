@@ -119,3 +119,32 @@ h1, h2, h3, h4, .font-serif {
 ::-webkit-scrollbar { width: 8px; }
 ::-webkit-scrollbar-track { background: #fdf6e9; }
 ::-webkit-scrollbar-thumb { background: #b4945c; border-radius: 10px; }
+/* Стилизация контейнера React Flow */
+.react-flow {
+  background-color: #fdf6e9 !important; /* Наш бежевый фон */
+  background-image: url('https://www.transparenttextures.com/patterns/cream-paper.png') !important;
+}
+
+/* Стилизация карточек людей (Узлов) */
+.react-flow__node {
+  background: white !important;
+  border: 2px solid #b4945c !important; /* Золотая рамка */
+  border-radius: 4px !important;
+  font-family: 'Playfair Display', serif !important;
+  box-shadow: 0 4px 15px rgba(180, 148, 92, 0.2) !important;
+  color: #1c1917 !important;
+  padding: 10px !important;
+}
+
+/* Стилизация линий (Связей) */
+.react-flow__edge-path {
+  stroke: #b4945c !important; /* Золотые линии */
+  stroke-width: 2px !important;
+}
+
+/* Стилизация кнопок управления (zoom) */
+.react-flow__controls button {
+  background-color: white !important;
+  border-bottom: 1px solid #b4945c !important;
+  fill: #b4945c !important;
+}

@@ -12,7 +12,7 @@ import MapPage from "./pages/MapPage";
 import Timeline from "./pages/Timeline";
 import NotFound from "./pages/NotFound";
 import Login from "./pages/Login"; // Наша новая страница входа
-
+import Suggest from "./pages/Suggest";
 // Импортируем компонент защиты
 import ProtectedRoute from "./components/ProtectedRoute";
 
@@ -25,19 +25,19 @@ const App = () => (
       <Sonner />
       <BrowserRouter>
         <Routes>
-          {/* Открытый маршрут для входа (здесь нет хедера) */}
+          {/* Открытый маршрут */}
           <Route path="/login" element={<Login />} />
 
-          {/* ЗАЩИЩЕННЫЕ МАРШРУТЫ (с хедером, только для авторизованных) */}
+          {/* ЗАЩИЩЕННЫЕ МАРШРУТЫ */}
           <Route element={<ProtectedRoute />}>
             <Route path="/" element={<Index />} />
             <Route path="/tree" element={<Tree />} />
             <Route path="/artifacts" element={<Artifacts />} />
             <Route path="/map" element={<MapPage />} />
             <Route path="/timeline" element={<Timeline />} />
+            <Route path="/suggest" element={<Suggest />} /> {/* ДОБАВЬ ЭТУ СТРОКУ */}
           </Route>
 
-          {/* Запасной маршрут для ошибок */}
           <Route path="*" element={<NotFound />} />
         </Routes>
       </BrowserRouter>

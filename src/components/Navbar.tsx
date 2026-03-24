@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
-import { Menu, X, TreeDeciduous, Image, Map, Clock, LogOut } from "lucide-react";
+import { Menu, X, TreeDeciduous, Image, Map, Clock, LogOut, MessageSquarePlus } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 
 const Navbar = () => {
@@ -8,12 +8,13 @@ const Navbar = () => {
   const location = useLocation();
   const navigate = useNavigate();
 
-  const links =[
+  const links = [
     { name: "Главная", path: "/", icon: <TreeDeciduous className="w-4 h-4" /> },
     { name: "Древо", path: "/tree", icon: <TreeDeciduous className="w-4 h-4" /> },
     { name: "Артефакты", path: "/artifacts", icon: <Image className="w-4 h-4" /> },
     { name: "Карта", path: "/map", icon: <Map className="w-4 h-4" /> },
     { name: "Хронология", path: "/timeline", icon: <Clock className="w-4 h-4" /> },
+    { name: "Предложить", path: "/suggest", icon: <MessageSquarePlus className="w-4 h-4" /> }, // Новая кнопка
   ];
 
   const handleLogout = async () => {

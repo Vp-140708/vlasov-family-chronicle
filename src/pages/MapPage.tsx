@@ -14,7 +14,17 @@ export default function MapPage() {
       <div className="max-w-6xl mx-auto border-4 border-[#b4945c] p-2 bg-white shadow-2xl">
         <div className="h-[70vh] w-full">
           <MapContainer center={[55.75, 37.61]} zoom={5} style={{ height: '100%', width: '100%' }}>
-            <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
+            <TileLayer
+              attribution='&copy; OpenStreetMap'
+              url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+              // Добавляем этот обработчик для стилизации
+              eventHandlers={{
+                add: (e) => {
+                  const container = e.target.getContainer();
+                  container.style.filter = 'sepia(60%) contrast(90%) brightness(105%) hue-rotate(-15deg)';
+                },
+              }}
+            />
             <Marker position={[55.75, 37.61]}>
               <Popup>Москва - колыбель рода</Popup>
             </Marker>
