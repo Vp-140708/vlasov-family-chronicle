@@ -16,7 +16,7 @@ export interface FamilyMember {
   gender: "m" | "f";
 }
 
-export const initialNodes: Node[] = [
+export const familyMembers: FamilyMember[] = [
   // ==========================================
   // УРОВЕНЬ 0: ОСНОВАТЕЛИ РОДОВ (Конец XVIII века)
   // ==========================================

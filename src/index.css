@@ -224,3 +224,58 @@ button:hover {
   stroke-dasharray: 5 !important;
   stroke: #b4945c !important;
 }
+/* Фиксируем размер карточек в древе */
+.react-flow__node {
+  width: 200px !important; /* Больше никаких длинных балок! */
+  background: white !important;
+  border-radius: 4px !important;
+  padding: 0 !important;
+  box-shadow: 0 4px 10px rgba(0,0,0,0.05) !important;
+  transition: all 0.3s ease !important;
+}
+
+/* Рамки для мужчин и женщин */
+.node-male { border: 2px solid #1a365d !important; }
+.node-female { border: 2px solid #702459 !important; }
+
+.react-flow__node:hover {
+  transform: scale(1.05);
+  box-shadow: 0 10px 20px rgba(180, 148, 92, 0.2) !important;
+}
+
+/* Красивые подписи на линиях (убираем черные коробки) */
+.react-flow__edge-label__renderer {
+  font-size: 10px;
+  color: #b4945c;
+  font-family: serif;
+}
+/* Базовый стиль карточки */
+.family-node {
+  padding: 12px;
+  border-radius: 4px;
+  background: white !important;
+  font-family: 'Playfair Display', serif;
+  width: 220px;
+  box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+  transition: transform 0.2s ease;
+  border-width: 2px !important;
+}
+
+/* Цвета по ролям/сословиям */
+.node-military { border-color: #2d5a27 !important; background: #f1f8f0 !important; } /* Военные - зеленый */
+.node-religious { border-color: #b4945c !important; background: #fdfaf3 !important; } /* Духовенство - золото */
+.node-peasant { border-color: #78350f !important; background: #fef3c7 !important; } /* Крестьяне - коричневый */
+.node-noble { border-color: #1e3a8a !important; background: #eff6ff !important; } /* Дворяне/Интеллигенция - синий */
+.node-standard { border-color: #57534e !important; }
+
+/* Закругленные связи */
+.react-flow__edge-path {
+  stroke: #b4945c !important;
+  stroke-width: 2px;
+}
+
+/* Связь супругов - красная пунктирная */
+.edge-spouse path {
+  stroke: #991b1b !important;
+  stroke-dasharray: 5;
+}
