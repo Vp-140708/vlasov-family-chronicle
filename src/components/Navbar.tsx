@@ -1,90 +1,108 @@
-import { motion } from "framer-motion";
-import { GitBranch, Archive, Map, Clock, Menu } from "lucide-react";
-import { Link, useLocation } from "react-router-dom"; // Добавил useLocation для подсветки активной страницы
-import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 import { useState } from "react";
-
-const navItems = [
-  { label: "Древо", icon: GitBranch, href: "/tree" },
-  { label: "Артефакты", icon: Archive, href: "/artifacts" },
-  { label: "Карта", icon: Map, href: "/map" },
-  { label: "Таймлайн", icon: Clock, href: "/timeline" },
-];
+import { Link, useLocation, useNavigate } from "react-router-dom";
+import { Menu, X, TreeDeciduous, Image, Map, Clock, LogOut } from "lucide-react";
+import { supabase } from "@/lib/supabase";
 
 const Navbar = () => {
   const [isOpen, setIsOpen] = useState(false);
   const location = useLocation();
+  const navigate = useNavigate();
+
+  const links =[
+    { name: "Главная", path: "/", icon: <TreeDeciduous className="w-4 h-4" /> },
+    { name: "Древо", path: "/tree", icon: <TreeDeciduous className="w-4 h-4" /> },
+    { name: "Артефакты", path: "/artifacts", icon: <Image className="w-4 h-4" /> },
+    { name: "Карта", path: "/map", icon: <Map className="w-4 h-4" /> },
+    { name: "Хронология", path: "/timeline", icon: <Clock className="w-4 h-4" /> },
+  ];
+
+  const handleLogout = async () => {
+    await supabase.auth.signOut();
+    navigate("/login");
+  };
 
   return (
-    <motion.nav
-      initial={{ y: -20, opacity: 0 }}
-      animate={{ y: 0, opacity: 1 }}
-      transition={{ duration: 0.5, delay: 0.2 }}
-      // Добавил фиксированную высоту h-16 и более плотный фон для мобилок
-      className="fixed top-0 left-0 right-0 z-[100] h-16 bg-stone-50/90 backdrop-blur-md border-b border-stone-200"
-    >
-      <div className="container mx-auto flex items-center justify-between h-full px-6">
-        <Link
-          to="/"
-          // font-serif сделает логотип более статусным
-          className="font-serif text-xl font-bold text-stone-900 tracking-tight shrink-0"
-        >
-          Vlasov <span className="text-amber-600 font-light italic">Heritage</span>
-        </Link>
-
-        {/* Desktop menu */}
-        <div className="hidden md:flex items-center gap-8">
-          {navItems.map((item) => (
-            <Link
-              key={item.label}
-              to={item.href}
-              className={`flex items-center gap-2 text-sm font-medium transition-colors duration-300 ${
-                location.pathname === item.href 
-                ? "text-amber-700" 
-                : "text-stone-500 hover:text-stone-900"
-              }`}
-            >
-              <item.icon className="w-4 h-4" />
-              {item.label}
+    <nav className="fixed w-full bg-stone-50/80 backdrop-blur-md z-50 border-b border-stone-200">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div className="flex justify-between h-16">
+          <div className="flex items-center">
+            <Link to="/" className="text-xl font-serif text-stone-800 font-semibold tracking-tight">
+              Хроника Рода
             </Link>
-          ))}
-        </div>
+          </div>
 
-        {/* Mobile menu - бургером */}
-        <div className="md:hidden flex items-center">
-          <Sheet open={isOpen} onOpenChange={setIsOpen}>
-            <SheetTrigger asChild>
-              <button
-                className="p-2 rounded-lg border border-stone-200 bg-white text-stone-600 shadow-sm"
-                aria-label="Открыть меню"
+          {/* Desktop Menu */}
+          <div className="hidden md:flex items-center space-x-8">
+            {links.map((link) => (
+              <Link
+                key={link.path}
+                to={link.path}
+                className={`flex items-center space-x-1 text-sm font-medium transition-colors ${
+                  location.pathname === link.path
+                    ? "text-stone-900"
+                    : "text-stone-500 hover:text-stone-900"
+                }`}
               >
-                <Menu className="w-6 h-6" />
-              </button>
-            </SheetTrigger>
-            <SheetContent side="right" className="bg-stone-50 border-l border-stone-200 w-[250px]">
-              <div className="flex flex-col gap-6 pt-10">
-                <div className="text-[10px] uppercase tracking-[0.3em] text-stone-400 font-bold border-b border-stone-200 pb-2">
-                  Навигация
-                </div>
-                <div className="flex flex-col gap-4">
-                  {navItems.map((item) => (
-                    <Link
-                      key={item.label}
-                      to={item.href}
-                      onClick={() => setIsOpen(false)}
-                      className="flex items-center gap-3 text-lg font-serif text-stone-700 hover:text-amber-700 transition-colors"
-                    >
-                      <item.icon className="w-5 h-5" />
-                      {item.label}
-                    </Link>
-                  ))}
-                </div>
-              </div>
-            </SheetContent>
-          </Sheet>
+                {link.icon}
+                <span>{link.name}</span>
+              </Link>
+            ))}
+            
+            <button
+              onClick={handleLogout}
+              className="flex items-center space-x-1 text-sm font-medium text-stone-500 hover:text-red-600 transition-colors ml-4 border-l pl-4 border-stone-200"
+              title="Выйти из аккаунта"
+            >
+              <LogOut className="w-4 h-4" />
+              <span>Выйти</span>
+            </button>
+          </div>
+
+          {/* Mobile menu button */}
+          <div className="md:hidden flex items-center">
+            <button
+              onClick={() => setIsOpen(!isOpen)}
+              className="text-stone-500 hover:text-stone-900 focus:outline-none"
+            >
+              {isOpen ? <X className="h-6 w-6" /> : <Menu className="h-6 w-6" />}
+            </button>
+          </div>
         </div>
       </div>
-    </motion.nav>
+
+      {/* Mobile Menu */}
+      {isOpen && (
+        <div className="md:hidden bg-stone-50 border-b border-stone-200">
+          <div className="px-2 pt-2 pb-3 space-y-1 sm:px-3">
+            {links.map((link) => (
+              <Link
+                key={link.path}
+                to={link.path}
+                onClick={() => setIsOpen(false)}
+                className={`flex items-center space-x-2 px-3 py-2 rounded-md text-base font-medium ${
+                  location.pathname === link.path
+                    ? "text-stone-900 bg-stone-100"
+                    : "text-stone-500 hover:text-stone-900 hover:bg-stone-100"
+                }`}
+              >
+                {link.icon}
+                <span>{link.name}</span>
+              </Link>
+            ))}
+            <button
+              onClick={() => {
+                setIsOpen(false);
+                handleLogout();
+              }}
+              className="flex items-center w-full space-x-2 px-3 py-2 mt-2 rounded-md text-base font-medium text-stone-500 hover:text-red-600 hover:bg-red-50"
+            >
+              <LogOut className="w-4 h-4" />
+              <span>Выйти из аккаунта</span>
+            </button>
+          </div>
+        </div>
+      )}
+    </nav>
   );
 };
 
