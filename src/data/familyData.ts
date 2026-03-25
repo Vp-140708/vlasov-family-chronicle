@@ -193,5 +193,5 @@ export const familyMembers: FamilyMember[] =[
   },
   { id: "masha_v", name: "Мария Александровна Власова", years: "род. 1977", title: "Сестра отца", branch: "paternal", generation: 6, gender: "f", fatherId: "alexander_v", motherId: "olga_v_p", bio: "" },
   { id: "katya_v", name: "Екатерина", years: "", title: "Двоюродная сестра", branch: "paternal", generation: 7, gender: "f", motherId: "masha_v", bio: "" }
-
+  
 ];
