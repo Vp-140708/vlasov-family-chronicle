@@ -1,112 +1,105 @@
-import { useState } from "react";
-import { Image, FileText, Award, Music, Search } from "lucide-react";
-
-// Временные данные (позже заменим на запрос к Supabase)
-const initialArtifacts = [
-  {
-    id: 1,
-    title: "Георгиевский крест",
-    category: "награда",
-    year: "1915",
-    description: "Награда прадеда за отвагу в Первой мировой войне. Сохранилась оригинальная лента.",
-    image: "https://images.unsplash.com/photo-1590523277543-a94d2e4eb00b?auto=format&fit=crop&q=80",
-    hasAudio: true
-  },
-  {
-    id: 2,
-    title: "Письмо с фронта",
-    category: "документ",
-    year: "1943",
-    description: "Письмо, написанное карандашом на пожелтевшей бумаге. В нем рассказ о быте и надежда на встречу.",
-    image: "https://images.unsplash.com/photo-1587731556938-3860014f3c39?auto=format&fit=crop&q=80",
-    hasAudio: false
-  },
-  {
-    id: 3,
-    title: "Свадебное фото",
-    category: "фото",
-    year: "1952",
-    description: "Первое послевоенное фото семьи. Сделано в сельском фотоателье.",
-    image: "https://images.unsplash.com/photo-1512486130939-2c4f79935e4f?auto=format&fit=crop&q=80",
-    hasAudio: true
-  }
-];
+import { useState, useEffect } from "react";
+import { supabase } from "@/integrations/supabase/client";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
+import { Trash2, Plus, X } from "lucide-react";
+import { toast } from "sonner";
 
 export default function Artifacts() {
-  const [filter, setFilter] = useState("все");
+  const [artifacts, setArtifacts] = useState<any[]>([]);
+  const [isAdmin, setIsAdmin] = useState(false);
+  const [showAddForm, setShowAddForm] = useState(false);
+  
+  // Поля новой формы
+  const [newArt, setNewArt] = useState({ title: "", description: "", image_url: "" });
 
-  const categories = [
-    { id: "все", label: "Все", icon: <Search className="w-4 h-4" /> },
-    { id: "фото", label: "Фотографии", icon: <Image className="w-4 h-4" /> },
-    { id: "документ", label: "Документы", icon: <FileText className="w-4 h-4" /> },
-    { id: "награда", label: "Награды", icon: <Award className="w-4 h-4" /> },
-  ];
+  useEffect(() => {
+    checkUser();
+    fetchArtifacts();
+  }, []);
+
+  async function checkUser() {
+    const { data: { user } } = await supabase.auth.getUser();
+    // ЗАМЕНИ НА СВОЙ EMAIL
+    if (user?.email === 'твой-email@gmail.com') {
+      setIsAdmin(true);
+    }
+  }
+
+  async function fetchArtifacts() {
+    const { data } = await supabase.from("artifacts").select("*").order("created_at", { ascending: false });
+    if (data) setArtifacts(data);
+  }
+
+  async function handleAdd() {
+    if (!newArt.title) return toast.error("Введите название");
+    const { error } = await supabase.from("artifacts").insert([newArt]);
+    if (!error) {
+      toast.success("Артефакт добавлен");
+      setShowAddForm(false);
+      setNewArt({ title: "", description: "", image_url: "" });
+      fetchArtifacts();
+    }
+  }
+
+  async function handleDelete(id: string) {
+    if (!confirm("Удалить этот артефакт?")) return;
+    const { error } = await supabase.from("artifacts").delete().eq("id", id);
+    if (!error) {
+      toast.success("Удалено");
+      fetchArtifacts();
+    }
+  }
 
   return (
-    <div className="min-h-screen bg-[#fdf6e9] py-12 px-4">
-      <div className="max-w-7xl mx-auto">
-        {/* Заголовок в стиле Index */}
-        <div className="text-center mb-16">
-          <span className="text-[#b4945c] uppercase tracking-[0.3em] text-xs font-bold block mb-4">Наследие</span>
-          <h1 className="text-4xl md:text-6xl font-serif text-stone-800 mb-6">Семейные артефакты</h1>
-          <div className="w-32 h-1 bg-[#b4945c] mx-auto mb-8" />
-          
-          {/* Фильтры */}
-          <div className="flex flex-wrap justify-center gap-4">
-            {categories.map(cat => (
-              <button
-                key={cat.id}
-                onClick={() => setFilter(cat.id)}
-                className={`flex items-center gap-2 px-6 py-2 rounded-full font-serif border transition-all ${
-                  filter === cat.id 
-                  ? "bg-[#b4945c] text-white border-[#b4945c]" 
-                  : "bg-white text-stone-600 border-stone-200 hover:border-[#b4945c]"
-                }`}
-              >
-                {cat.icon} {cat.label}
-              </button>
-            ))}
+    <div className="container mx-auto p-6 pt-24">
+      <div className="flex justify-between items-center mb-8 border-b pb-4">
+        <h1 className="text-4xl font-serif text-[#003366]">Семейные реликвии</h1>
+        {isAdmin && (
+          <Button onClick={() => setShowAddForm(true)} className="bg-[#bda67a] hover:bg-[#a68d5b]">
+            <Plus className="mr-2 h-4 w-4" /> Добавить
+          </Button>
+        )}
+      </div>
+
+      {/* Форма добавления (только для админа) */}
+      {showAddForm && (
+        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
+          <div className="bg-white p-6 rounded-2xl w-full max-w-md relative">
+            <button onClick={() => setShowAddForm(false)} className="absolute top-4 right-4"><X /></button>
+            <h2 className="text-2xl font-bold mb-4">Новый артефакт</h2>
+            <div className="space-y-4">
+              <Input placeholder="Название" value={newArt.title} onChange={e => setNewArt({...newArt, title: e.target.value})} />
+              <Input placeholder="Ссылка на фото (URL)" value={newArt.image_url} onChange={e => setNewArt({...newArt, image_url: e.target.value})} />
+              <Textarea placeholder="Описание" value={newArt.description} onChange={e => setNewArt({...newArt, description: e.target.value})} />
+              <Button onClick={handleAdd} className="w-full bg-green-700">Сохранить</Button>
+            </div>
           </div>
         </div>
+      )}
 
-        {/* Сетка артефактов */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-10">
-          {initialArtifacts
-            .filter(item => filter === "все" || item.category === filter)
-            .map(item => (
-            <div key={item.id} className="group relative bg-white p-4 border border-[#b4945c]/20 rounded-sm shadow-sm hover:shadow-2xl transition-all">
-              {/* "Паспарту" для фото */}
-              <div className="relative aspect-[4/5] overflow-hidden mb-6 bg-stone-100 border border-stone-200">
-                <img 
-                  src={item.image} 
-                  alt={item.title}
-                  className="w-full h-full object-cover grayscale-[30%] group-hover:grayscale-0 transition-all duration-700 group-hover:scale-110"
-                />
-                {item.hasAudio && (
-                  <div className="absolute bottom-4 right-4 w-10 h-10 bg-[#b4945c] text-white rounded-full flex items-center justify-center shadow-lg animate-pulse">
-                    <Music className="w-5 h-5" />
-                  </div>
-                )}
-              </div>
-
-              <div className="text-center px-4 pb-4">
-                <span className="text-[#b4945c] font-serif italic text-sm">{item.year} год</span>
-                <h3 className="text-2xl font-serif text-stone-800 my-2">{item.title}</h3>
-                <p className="text-stone-600 font-serif text-sm leading-relaxed line-clamp-3">
-                  {item.description}
-                </p>
-                
-                <button className="mt-6 text-[#b4945c] uppercase tracking-widest text-[10px] font-bold border-b border-[#b4945c] pb-1 hover:text-stone-800 hover:border-stone-800 transition-colors">
-                  Изучить подробнее
-                </button>
-              </div>
-
-              {/* Золотой уголок (декор) */}
-              <div className="absolute top-0 right-0 w-8 h-8 border-t-2 border-r-2 border-[#b4945c]/30 pointer-events-none" />
-              <div className="absolute bottom-0 left-0 w-8 h-8 border-b-2 border-l-2 border-[#b4945c]/30 pointer-events-none" />
+      {/* Список артефактов */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+        {artifacts.map((art) => (
+          <div key={art.id} className="bg-white rounded-2xl shadow-lg overflow-hidden border border-gray-100 group relative">
+            <img src={art.image_url || "/placeholder.svg"} alt={art.title} className="w-full h-56 object-cover" />
+            <div className="p-5">
+              <h3 className="text-xl font-bold text-[#003366] font-serif mb-2">{art.title}</h3>
+              <p className="text-gray-600 text-sm italic leading-relaxed">{art.description}</p>
             </div>
-          ))}
-        </div>
+            {isAdmin && (
+              <Button 
+                variant="destructive" 
+                size="icon" 
+                className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity"
+                onClick={() => handleDelete(art.id)}
+              >
+                <Trash2 className="h-4 w-4" />
+              </Button>
+            )}
+          </div>
+        ))}
       </div>
     </div>
   );

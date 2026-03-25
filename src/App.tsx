@@ -18,8 +18,9 @@ import Migrate from "./pages/Migrate";
 // Импортируем компонент защиты
 import ProtectedRoute from "./components/ProtectedRoute";
 
-const queryClient = new QueryClient();
 
+const queryClient = new QueryClient();
+const isAdmin = user?.email === 'vlasov_pavel@mail.ru';
 const App = () => (
   <QueryClientProvider client={queryClient}>
     <TooltipProvider>
@@ -29,7 +30,7 @@ const App = () => (
         <Routes>
           {/* Открытый маршрут */}
           <Route path="/login" element={<Login />} />
-
+          <Route path="/artifacts" element={<Artifacts isAdmin={isAdmin} />} />
           {/* ЗАЩИЩЕННЫЕ МАРШРУТЫ */}
           <Route element={<ProtectedRoute />}>
             <Route path="/" element={<Index />} />
