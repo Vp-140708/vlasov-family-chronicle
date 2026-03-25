@@ -13,10 +13,12 @@ const nodeTypes = { custom: PersonNode };
 
 // Настройка стилей линий (золотой цвет и плавный изгиб)
 const defaultEdgeOptions = {
-  type: 'smoothstep',
-  style: { stroke: '#bda67a', strokeWidth: 2 },
+  type: 'default', // Плавные кривые линии
+  style: { 
+    stroke: '#cda85f', 
+    strokeWidth: 2.5,
+  },
 };
-
 const ancestors = [
   {
     name: "Николай Викентьевич Тороцко",

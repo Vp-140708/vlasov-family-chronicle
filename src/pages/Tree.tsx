@@ -31,42 +31,35 @@ const getLayoutedElements = (nodes: any[], edges: any[]) => {
   const dagreGraph = new dagre.graphlib.Graph();
   dagreGraph.setDefaultEdgeLabel(() => ({}));
 
-  // Настройки сетки (сделали компактнее, чтобы не было широко)
-  dagreGraph.setGraph({
-    rankdir: 'TB',
-    nodesep: 50,   // Отступ по горизонтали (между карточками)
-    ranksep: 90    // Отступ по вертикали (между поколениями)
-  });
+  // nodesep: 30 (горизонталь) - очень близко
+  // ranksep: 60 (вертикаль) - поколения очень близко
+  dagreGraph.setGraph({ rankdir: 'TB', nodesep: 30, ranksep: 60 });
 
   nodes.forEach((node) => {
-    // Указываем точные размеры нашей новой карточки
-    dagreGraph.setNode(node.id, { width: 260, height: 100 });
+    // Указываем новые размеры: 170 в ширину, 60 в высоту
+    dagreGraph.setNode(node.id, { width: 170, height: 60 });
   });
 
   edges.forEach((edge) => {
-    // Как алгоритм понимает, что это супруги? Если линия идет из правого бока в левый бок
-    const isSpouse = edge.sourceHandle === 'right' || edge.targetHandle === 'left';
-
-    if (isSpouse) {
-      // Супруги: minlen 0 ставит их ВПЛОТНУЮ на одном уровне!
-      dagreGraph.setEdge(edge.source, edge.target, { minlen: 0, weight: 10 });
-    } else {
-      // Дети: обычная связь сверху вниз
-      dagreGraph.setEdge(edge.source, edge.target, { minlen: 1, weight: 1 });
-    }
+    dagreGraph.setEdge(edge.source, edge.target);
   });
 
   dagre.layout(dagreGraph);
 
-  const newNodes = nodes.map((node) => {
-    const nodeWithPosition = dagreGraph.node(node.id);
-    return {
-      ...node,
-      position: { x: nodeWithPosition.x - 260 / 2, y: nodeWithPosition.y - 100 / 2 },
-    };
-  });
-
-  return { nodes: newNodes, edges };
+  return {
+    nodes: nodes.map((node) => {
+      const nodeWithPosition = dagreGraph.node(node.id);
+      return {
+        ...node,
+        type: 'custom', // Гарантируем наш дизайн
+        position: {
+          x: nodeWithPosition.x - 170 / 2,
+          y: nodeWithPosition.y - 60 / 2,
+        },
+      };
+    }),
+    edges,
+  };
 };
 const TreeContent = () => {
   const [nodes, setNodes] = useState<Node[]>([]);
@@ -163,7 +156,7 @@ const TreeContent = () => {
   }, [setViewport]);
 
   useEffect(() => { fetchData(); }, [fetchData]);
-  
+
   const onNodesChange: OnNodesChange = useCallback((chs) => setNodes((nds) => applyNodeChanges(chs, nds)), []);
   const onEdgesChange: OnEdgesChange = useCallback((chs) => setEdges((eds) => applyEdgeChanges(chs, eds)), []);
 
