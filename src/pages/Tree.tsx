@@ -10,14 +10,22 @@ import { Save, X, Search } from 'lucide-react';
 import dagre from '@dagrejs/dagre';
 const dagreGraph = new dagre.graphlib.Graph();
 dagreGraph.setDefaultEdgeLabel(() => ({}));
+import PersonNode from '../components/PersonNode';
+// Говорим React Flow использовать нашу новую карточку
+const nodeTypes = { custom: PersonNode };
 
+// Настройка красивых золотых плавных линий
+const defaultEdgeOptions = {
+  type: 'smoothstep',
+  style: { stroke: '#bda67a', strokeWidth: 2 },
+};
 const getLayoutedElements = (nodes: any[], edges: any[]) => {
   const dagreGraph = new dagre.graphlib.Graph();
   dagreGraph.setDefaultEdgeLabel(() => ({}));
 
   // Настройки сетки (сделали компактнее, чтобы не было широко)
-  dagreGraph.setGraph({ 
-    rankdir: 'TB', 
+  dagreGraph.setGraph({
+    rankdir: 'TB',
     nodesep: 50,   // Отступ по горизонтали (между карточками)
     ranksep: 90    // Отступ по вертикали (между поколениями)
   });
@@ -30,7 +38,7 @@ const getLayoutedElements = (nodes: any[], edges: any[]) => {
   edges.forEach((edge) => {
     // Как алгоритм понимает, что это супруги? Если линия идет из правого бока в левый бок
     const isSpouse = edge.sourceHandle === 'right' || edge.targetHandle === 'left';
-    
+
     if (isSpouse) {
       // Супруги: minlen 0 ставит их ВПЛОТНУЮ на одном уровне!
       dagreGraph.setEdge(edge.source, edge.target, { minlen: 0, weight: 10 });
@@ -59,7 +67,7 @@ const TreeContent = () => {
   const [searchQuery, setSearchQuery] = useState("");
   const { setViewport, getViewport, setCenter } = useReactFlow();
   // Вставляем функцию-обработчик
-  const onSaveToDatabase = async () => {
+  const onSaveLayout = async () => {
     try {
       // Собираем координаты всех карточек
       const updates = nodes.map((node) => ({
@@ -68,13 +76,13 @@ const TreeContent = () => {
         position_y: Math.round(node.position.y),
       }));
 
-      // Отправляем в Supabase
+      // ВАЖНО: Пишем правильное имя таблицы из вашей базы!
       const { error } = await supabase
-        .from('Vp-140708's Project') 
+        .from('tree_layout')
         .upsert(updates);
 
       if (error) throw error;
-      toast.success("Расстановка навсегда сохранена в базу!");
+      toast.success("Расстановка успешно сохранена!");
     } catch (err) {
       console.error(err);
       toast.error("Ошибка при сохранении");
@@ -187,14 +195,12 @@ const TreeContent = () => {
       <ReactFlow
         nodes={nodes}
         edges={edges}
-        nodeTypes={nodeTypes}
-        defaultEdgeOptions={defaultEdgeOptions}
         onNodesChange={onNodesChange}
         onEdgesChange={onEdgesChange}
-        onNodeClick={(_, n) => supabase.from('people').select('*').eq('id', n.id).single().then(({ data }) => setSelected(data))}
-        fitView
+        nodeTypes={nodeTypes} // <--- ДОБАВИТЬ ЭТО
+        defaultEdgeOptions={defaultEdgeOptions} // <--- ДОБАВИТЬ ЭТО
       >
-        <Background color="#b4945c" gap={40} opacity={0.05} />
+        <Background />
         <Controls />
       </ReactFlow>
 
