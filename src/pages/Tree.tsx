@@ -11,14 +11,22 @@ import dagre from '@dagrejs/dagre';
 const dagreGraph = new dagre.graphlib.Graph();
 dagreGraph.setDefaultEdgeLabel(() => ({}));
 import PersonNode from '../components/PersonNode';
-// Говорим React Flow использовать нашу новую карточку
-const nodeTypes = { custom: PersonNode };
 
-// Настройка красивых золотых плавных линий
-const defaultEdgeOptions = {
-  type: 'smoothstep',
-  style: { stroke: '#bda67a', strokeWidth: 2 },
+
+const nodeTypes = { 
+  custom: PersonNode,
+  person: PersonNode 
 };
+
+// Золотые плавные линии
+const defaultEdgeOptions = {
+  type: 'default', 
+  style: { 
+    stroke: '#cda85f', 
+    strokeWidth: 3,    
+  },
+};
+
 const getLayoutedElements = (nodes: any[], edges: any[]) => {
   const dagreGraph = new dagre.graphlib.Graph();
   dagreGraph.setDefaultEdgeLabel(() => ({}));
@@ -197,8 +205,8 @@ const TreeContent = () => {
         edges={edges}
         onNodesChange={onNodesChange}
         onEdgesChange={onEdgesChange}
-        nodeTypes={nodeTypes} // <--- ДОБАВИТЬ ЭТО
-        defaultEdgeOptions={defaultEdgeOptions} // <--- ДОБАВИТЬ ЭТО
+        nodeTypes={nodeTypes}
+        defaultEdgeOptions={defaultEdgeOptions}
       >
         <Background />
         <Controls />
