@@ -5,6 +5,17 @@ import HeroSection from "@/components/HeroSection";
 import AncestorCard from "@/components/AncestorCard";
 import findingDress from "@/assets/finding-dress.jpg";
 import findingTelegram from "@/assets/finding-telegram.jpg";
+import PersonNode from '../components/PersonNode';
+import { supabase } from '@/integrations/supabase/client'; // Путь к БД Supabase в Lovable
+import { toast } from 'sonner';
+// Говорим React Flow использовать нашу новую красивую карточку
+const nodeTypes = { custom: PersonNode };
+
+// Настройка стилей линий (золотой цвет и плавный изгиб)
+const defaultEdgeOptions = {
+  type: 'smoothstep',
+  style: { stroke: '#bda67a', strokeWidth: 2 },
+};
 
 const ancestors = [
   {

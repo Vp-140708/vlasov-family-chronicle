@@ -12,42 +12,41 @@ const dagreGraph = new dagre.graphlib.Graph();
 dagreGraph.setDefaultEdgeLabel(() => ({}));
 
 const getLayoutedElements = (nodes: any[], edges: any[]) => {
-  // Настройки сетки (можете потом менять эти цифры, если захотите сделать шире/уже)
-  dagreGraph.setGraph({
-    rankdir: 'TB', // сверху вниз
-    nodesep: 80,   // отступ по горизонтали (между братьями/сестрами)
-    ranksep: 120   // отступ по вертикали (между поколениями)
+  const dagreGraph = new dagre.graphlib.Graph();
+  dagreGraph.setDefaultEdgeLabel(() => ({}));
+
+  // Настройки сетки (сделали компактнее, чтобы не было широко)
+  dagreGraph.setGraph({ 
+    rankdir: 'TB', 
+    nodesep: 50,   // Отступ по горизонтали (между карточками)
+    ranksep: 90    // Отступ по вертикали (между поколениями)
   });
 
   nodes.forEach((node) => {
-    // Ищем ваши "сердечки". Обычно в Lovable их id или type содержит слово union/marriage/heart
-    // Если "сердечки" выстроятся как огромные карточки, просто поменяйте 'union' на ваш тип узла
-    const isUnion = node.type === 'union' || (typeof node.id === 'string' && node.id.includes('union'));
-
-    dagreGraph.setNode(node.id, {
-      width: isUnion ? 40 : 280,   // 280 - примерная ширина вашей карточки с человеком
-      height: isUnion ? 40 : 100   // 100 - примерная высота
-    });
+    // Указываем точные размеры нашей новой карточки
+    dagreGraph.setNode(node.id, { width: 260, height: 100 });
   });
 
   edges.forEach((edge) => {
-    dagreGraph.setEdge(edge.source, edge.target);
+    // Как алгоритм понимает, что это супруги? Если линия идет из правого бока в левый бок
+    const isSpouse = edge.sourceHandle === 'right' || edge.targetHandle === 'left';
+    
+    if (isSpouse) {
+      // Супруги: minlen 0 ставит их ВПЛОТНУЮ на одном уровне!
+      dagreGraph.setEdge(edge.source, edge.target, { minlen: 0, weight: 10 });
+    } else {
+      // Дети: обычная связь сверху вниз
+      dagreGraph.setEdge(edge.source, edge.target, { minlen: 1, weight: 1 });
+    }
   });
 
   dagre.layout(dagreGraph);
 
   const newNodes = nodes.map((node) => {
     const nodeWithPosition = dagreGraph.node(node.id);
-    const isUnion = node.type === 'union' || (typeof node.id === 'string' && node.id.includes('union'));
-    const w = isUnion ? 40 : 280;
-    const h = isUnion ? 40 : 100;
-
     return {
       ...node,
-      position: {
-        x: nodeWithPosition.x - w / 2,
-        y: nodeWithPosition.y - h / 2,
-      },
+      position: { x: nodeWithPosition.x - 260 / 2, y: nodeWithPosition.y - 100 / 2 },
     };
   });
 
@@ -60,6 +59,27 @@ const TreeContent = () => {
   const [searchQuery, setSearchQuery] = useState("");
   const { setViewport, getViewport, setCenter } = useReactFlow();
   // Вставляем функцию-обработчик
+  const onSaveToDatabase = async () => {
+    try {
+      // Собираем координаты всех карточек
+      const updates = nodes.map((node) => ({
+        id: node.id,
+        position_x: Math.round(node.position.x),
+        position_y: Math.round(node.position.y),
+      }));
+
+      // Отправляем в Supabase
+      const { error } = await supabase
+        .from('Vp-140708's Project') 
+        .upsert(updates);
+
+      if (error) throw error;
+      toast.success("Расстановка навсегда сохранена в базу!");
+    } catch (err) {
+      console.error(err);
+      toast.error("Ошибка при сохранении");
+    }
+  };
   const onLayout = useCallback(() => {
     const { nodes: layoutedNodes, edges: layoutedEdges } = getLayoutedElements(
       nodes,
@@ -167,6 +187,8 @@ const TreeContent = () => {
       <ReactFlow
         nodes={nodes}
         edges={edges}
+        nodeTypes={nodeTypes}
+        defaultEdgeOptions={defaultEdgeOptions}
         onNodesChange={onNodesChange}
         onEdgesChange={onEdgesChange}
         onNodeClick={(_, n) => supabase.from('people').select('*').eq('id', n.id).single().then(({ data }) => setSelected(data))}
