@@ -13,17 +13,17 @@ dagreGraph.setDefaultEdgeLabel(() => ({}));
 import PersonNode from '../components/PersonNode';
 
 
-const nodeTypes = { 
+// ОПРЕДЕЛЯЕМ ДИЗАЙН ОДИН РАЗ
+const MY_NODE_TYPES = {
   custom: PersonNode,
-  person: PersonNode 
+  person: PersonNode
 };
 
-// Золотые плавные линии
-const defaultEdgeOptions = {
-  type: 'default', 
-  style: { 
-    stroke: '#cda85f', 
-    strokeWidth: 3,    
+const MY_EDGE_OPTIONS = {
+  type: 'default', // Плавные линии
+  style: {
+    stroke: '#cda85f', // Золотой цвет
+    strokeWidth: 3,    // Толстые линии
   },
 };
 
@@ -163,7 +163,7 @@ const TreeContent = () => {
   }, [setViewport]);
 
   useEffect(() => { fetchData(); }, [fetchData]);
-
+  
   const onNodesChange: OnNodesChange = useCallback((chs) => setNodes((nds) => applyNodeChanges(chs, nds)), []);
   const onEdgesChange: OnEdgesChange = useCallback((chs) => setEdges((eds) => applyEdgeChanges(chs, eds)), []);
 
@@ -205,8 +205,8 @@ const TreeContent = () => {
         edges={edges}
         onNodesChange={onNodesChange}
         onEdgesChange={onEdgesChange}
-        nodeTypes={nodeTypes}
-        defaultEdgeOptions={defaultEdgeOptions}
+        nodeTypes={MY_NODE_TYPES}     // <--- Используем новое имя
+        defaultEdgeOptions={MY_EDGE_OPTIONS} // <--- Используем новое имя
       >
         <Background />
         <Controls />
