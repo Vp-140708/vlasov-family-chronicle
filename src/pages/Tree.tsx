@@ -1,225 +1,228 @@
-import { useEffect, useState, useCallback } from 'react';
-import ReactFlow, {
-  Background, Controls, Node, Edge,
-  applyNodeChanges, applyEdgeChanges, OnNodesChange, OnEdgesChange,
-  ReactFlowProvider, useReactFlow, Position
+import React, { useCallback, useEffect, useState, useMemo } from 'react';
+import ReactFlow, { 
+  Background, 
+  Controls, 
+  useNodesState, 
+  useEdgesState, 
+  addEdge, 
+  Panel,
+  Connection,
+  Edge,
+  Handle,
+  Position,
+  ConnectionLineType
 } from 'reactflow';
 import 'reactflow/dist/style.css';
-import { supabase } from '@/lib/supabase';
-import { Save, X, Search } from 'lucide-react';
-import dagre from '@dagrejs/dagre';
-const dagreGraph = new dagre.graphlib.Graph();
-dagreGraph.setDefaultEdgeLabel(() => ({}));
-import PersonNode from '../components/PersonNode';
+import { familyMembers, FamilyMember } from '../data/familyData';
+import { supabase } from '../lib/supabase';
+import { Sheet, SheetContent } from "@/components/ui/sheet";
 
-
-// ОПРЕДЕЛЯЕМ ДИЗАЙН ОДИН РАЗ
-const MY_NODE_TYPES = {
-  custom: PersonNode,
-  person: PersonNode
-};
-
-const MY_EDGE_OPTIONS = {
-  type: 'default', // Плавные линии
-  style: {
-    stroke: '#cda85f', // Золотой цвет
-    strokeWidth: 3,    // Толстые линии
-  },
-};
-
-const getLayoutedElements = (nodes: any[], edges: any[]) => {
-  const dagreGraph = new dagre.graphlib.Graph();
-  dagreGraph.setDefaultEdgeLabel(() => ({}));
-
-  // nodesep: 30 (горизонталь) - очень близко
-  // ranksep: 60 (вертикаль) - поколения очень близко
-  dagreGraph.setGraph({ rankdir: 'TB', nodesep: 30, ranksep: 60 });
-
-  nodes.forEach((node) => {
-    // Указываем новые размеры: 170 в ширину, 60 в высоту
-    dagreGraph.setNode(node.id, { width: 170, height: 60 });
-  });
-
-  edges.forEach((edge) => {
-    dagreGraph.setEdge(edge.source, edge.target);
-  });
-
-  dagre.layout(dagreGraph);
-
-  return {
-    nodes: nodes.map((node) => {
-      const nodeWithPosition = dagreGraph.node(node.id);
-      return {
-        ...node,
-        type: 'custom', // Гарантируем наш дизайн
-        position: {
-          x: nodeWithPosition.x - 170 / 2,
-          y: nodeWithPosition.y - 60 / 2,
-        },
-      };
-    }),
-    edges,
-  };
-};
-const TreeContent = () => {
-  const [nodes, setNodes] = useState<Node[]>([]);
-  const [edges, setEdges] = useState<Edge[]>([]);
-  const [selected, setSelected] = useState<any>(null);
-  const [searchQuery, setSearchQuery] = useState("");
-  const { setViewport, getViewport, setCenter } = useReactFlow();
-  // Вставляем функцию-обработчик
-  const onSaveLayout = async () => {
-    try {
-      // Собираем координаты всех карточек
-      const updates = nodes.map((node) => ({
-        id: node.id,
-        position_x: Math.round(node.position.x),
-        position_y: Math.round(node.position.y),
-      }));
-
-      // ВАЖНО: Пишем правильное имя таблицы из вашей базы!
-      const { error } = await supabase
-        .from('tree_layout')
-        .upsert(updates);
-
-      if (error) throw error;
-      toast.success("Расстановка успешно сохранена!");
-    } catch (err) {
-      console.error(err);
-      toast.error("Ошибка при сохранении");
-    }
-  };
-  const onLayout = useCallback(() => {
-    const { nodes: layoutedNodes, edges: layoutedEdges } = getLayoutedElements(
-      nodes,
-      edges
-    );
-    setNodes([...layoutedNodes]);
-    setEdges([...layoutedEdges]);
-  }, [nodes, edges, setNodes, setEdges]);
-  const fetchData = useCallback(async () => {
-    const { data: people } = await supabase.from('people').select('*');
-    const { data: relations } = await supabase.from('family_edges').select('*');
-    const { data: layout } = await supabase.from('tree_layout').select('*').eq('id', 'main-tree').maybeSingle();
-
-    if (people) {
-      const initialNodes = people.map(p => {
-        const saved = layout?.nodes?.find((n: any) => n.id === p.id);
-
-        // Определяем класс стиля
-        let role = 'node-standard';
-        const bio = (p.biography || "").toLowerCase();
-        if (bio.includes('священник')) role = 'node-religious';
-        if (bio.includes('военный') || bio.includes('капитан')) role = 'node-military';
-        if (bio.includes('крестьянин') || bio.includes('пахарь')) role = 'node-peasant';
-        if (bio.includes('дворян') || bio.includes('инженер')) role = 'node-noble';
-
-        return {
-          id: p.id,
-          // ВАЖНО: Разрешаем вход/выход со всех сторон для удобства ручной расстановки
-          sourcePosition: Position.Bottom,
-          targetPosition: Position.Top,
-          position: saved?.position || { x: p.x_pos || 0, y: p.y_pos || 0 },
-          data: {
-            label: (
-              <div className="text-center">
-                <div className="font-bold text-[11px] leading-tight mb-1">{p.full_name}</div>
-                <div className="text-[9px] opacity-60 italic">{p.info_label}</div>
-              </div>
-            )
-          },
-          className: `family-node ${role}`
-        };
-      });
-      setNodes(initialNodes);
-    }
-
-    if (relations) {
-      setEdges(relations.map(r => ({
-        id: r.id,
-        source: r.source_id,
-        target: r.target_id,
-        // ТИП ЛИНИИ: default в React Flow — это плавная кривая Безье
-        type: r.label === 'супруги' ? 'smoothstep' : 'default',
-        label: r.label === 'супруги' ? '❤️' : '',
-        style: {
-          stroke: r.label === 'супруги' ? '#991b1b' : '#b4945c',
-          strokeWidth: 2
-        },
-        // Плавность для прямых углов, если используется smoothstep
-        pathOptions: { borderRadius: 40 },
-        className: r.label === 'супруги' ? 'edge-spouse' : 'edge-blood'
-      })));
-    }
-
-    if (layout?.viewport) setViewport(layout.viewport, { duration: 1000 });
-  }, [setViewport]);
-
-  useEffect(() => { fetchData(); }, [fetchData]);
-
-  const onNodesChange: OnNodesChange = useCallback((chs) => setNodes((nds) => applyNodeChanges(chs, nds)), []);
-  const onEdgesChange: OnEdgesChange = useCallback((chs) => setEdges((eds) => applyEdgeChanges(chs, eds)), []);
-
-  const onSave = async () => {
-    const { error } = await supabase.from('tree_layout').upsert({
-      id: 'main-tree',
-      nodes: nodes.map(n => ({ id: n.id, position: n.position })),
-      viewport: getViewport()
-    });
-    if (!error) alert("Ваша расстановка сохранена!");
-  };
+// --- ЭТАЛОННАЯ КАРТОЧКА ПРЕДКА (ПРЕМИУМ ДИЗАЙН) ---
+const FamilyNode = ({ data }: { data: { member: FamilyMember } }) => {
+  const m = data.member;
+  if (!m) return null;
 
   return (
-    <div className="h-screen w-full bg-[#fdf6e9] relative">
-      <div className="absolute top-20 left-10 z-50 flex gap-4">
-        <input
-          className="pl-4 pr-4 py-2 bg-white border border-[#b4945c] rounded-md font-serif text-sm w-64 shadow-lg"
-          placeholder="Поиск предка..."
-          value={searchQuery}
-          onChange={e => {
-            setSearchQuery(e.target.value);
-            const found = nodes.find(n => n.id.includes(e.target.value.toLowerCase()));
-            if (found) setCenter(found.position.x, found.position.y, { zoom: 1, duration: 500 });
-          }}
-        />
-        <button onClick={onSave} className="flex items-center gap-2 px-6 py-2 bg-[#b4945c] text-white rounded-md shadow-lg font-serif uppercase text-[10px] tracking-widest font-bold">
-          <Save size={14} /> Сохранить расстановку
-        </button>
-        <button
-          onClick={onLayout}
-          className="bg-gray-800 text-white px-4 py-2 rounded font-medium shadow-md hover:bg-gray-700 transition"
-        >
-          ✨ ВЫРОВНЯТЬ ДЕРЕВО
-        </button>
-      </div>
+    <div className={`group relative p-5 rounded-xl border-t-4 shadow-2xl bg-[#fdfaf5] w-64 text-center border-b border-l border-r border-stone-200 transition-all hover:scale-105 ${
+      m.branch === 'paternal' ? 'border-t-blue-800' : (m.branch === 'maternal' ? 'border-t-emerald-800' : 'border-t-amber-600')
+    }`}>
+      {/* ОГРОМНЫЕ ТОЧКИ СОЕДИНЕНИЯ (24px) */}
+      <Handle type="target" position={Position.Top} className="!w-6 !h-6 !bg-amber-500 !border-2 !border-white !-top-3 z-10" />
+      <Handle type="source" position={Position.Bottom} className="!w-6 !h-6 !bg-amber-500 !border-2 !border-white !-bottom-3 z-10" />
+      <Handle type="target" position={Position.Left} id="spouse-in" className="!w-6 !h-6 !bg-rose-500 !border-2 !border-white !-left-3 z-10" />
+      <Handle type="source" position={Position.Right} id="spouse-out" className="!w-6 !h-6 !bg-rose-500 !border-2 !border-white !-right-3 z-10" />
 
-      <ReactFlow
-        nodes={nodes}
-        edges={edges}
-        onNodesChange={onNodesChange}
-        onEdgesChange={onEdgesChange}
-        nodeTypes={MY_NODE_TYPES}     // <--- Используем новое имя
-        defaultEdgeOptions={MY_EDGE_OPTIONS} // <--- Используем новое имя
-      >
-        <Background />
-        <Controls />
-      </ReactFlow>
-
-      {/* Личное дело (Модалка) */}
-      {selected && (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm">
-          <div className="bg-[#fffcf5] border-2 border-[#b4945c] w-full max-w-2xl shadow-2xl p-8 font-serif relative">
-            <button onClick={() => setSelected(null)} className="absolute top-4 right-4 text-stone-400"><X size={24} /></button>
-            <h2 className="text-3xl text-stone-800 mb-2 font-bold">{selected.full_name}</h2>
-            <p className="text-[#b4945c] italic mb-6 border-b border-[#b4945c]/20 pb-2">{selected.info_label}</p>
-            <div className="space-y-4 text-sm text-stone-600 leading-relaxed italic overflow-y-auto max-h-[50vh]">
-              {selected.biography}
-            </div>
-          </div>
-        </div>
-      )}
+      <div className="font-serif text-[10px] uppercase tracking-widest text-stone-400 mb-1">{m.title}</div>
+      <div className="font-serif font-bold text-lg text-stone-900 leading-tight border-b border-stone-100 pb-2">{m.name}</div>
+      <div className="text-xs text-amber-700 font-serif italic mt-2">{m.years}</div>
     </div>
   );
 };
 
-export default function Tree() { return (<ReactFlowProvider><TreeContent /></ReactFlowProvider>); }
+const nodeTypes = {
+  familyNode: FamilyNode,
+};
+
+const Tree = () => {
+  const [selectedMember, setSelectedMember] = useState<FamilyMember | null>(null);
+  const [isSaving, setIsSaving] = useState(false);
+
+  // УМНАЯ НАЧАЛЬНАЯ РАССТАНОВКА (Чтобы не было каши)
+  const initialNodes = useMemo(() => {
+    const nodes: any[] =[];
+    const genGroups: Record<number, FamilyMember[]> = {};
+    
+    // Группируем по поколениям
+    familyMembers.forEach(m => {
+      if (!genGroups[m.generation]) genGroups[m.generation] = [];
+      genGroups[m.generation].push(m);
+    });
+
+    familyMembers.forEach((m) => {
+      const membersInGen = genGroups[m.generation];
+      const index = membersInGen.indexOf(m);
+      const total = membersInGen.length;
+      
+      // Вычисляем X так, чтобы они стояли ровно в ряд
+      const xPos = (index - (total - 1) / 2) * 350;
+      
+      // Сдвигаем папину ветку левее, мамину правее
+      const branchShift = m.branch === 'paternal' ? -400 : (m.branch === 'maternal' ? 400 : 0);
+
+      nodes.push({
+        id: m.id,
+        type: 'familyNode',
+        data: { member: m },
+        position: { x: xPos + branchShift, y: m.generation * 300 },
+        draggable: true,
+      });
+    });
+    return nodes;
+  }, []);
+
+  const [nodes, setNodes, onNodesChange] = useNodesState(initialNodes);
+  const [edges, setEdges, onEdgesChange] = useEdgesState([]);
+
+  // Загрузка из Supabase
+  useEffect(() => {
+    const loadTree = async () => {
+      const { data, error } = await supabase.from('tree_layout').select('*').filter('id', 'eq', 'main_tree').maybeSingle();
+      if (data && !error && data.nodes && data.nodes.length > 0) {
+        const rehydratedNodes = data.nodes.map((sn: any) => {
+          const m = familyMembers.find(fm => fm.id === sn.id);
+          // Если человек удален из базы, не грузим его
+          if (!m) return null;
+          return { ...sn, type: 'familyNode', data: { member: m } };
+        }).filter(Boolean);
+        
+        setNodes(rehydratedNodes);
+        if (data.edges) setEdges(data.edges);
+      }
+    };
+    loadTree();
+  }, [setNodes, setEdges]);
+
+  // Сохранение
+  const saveToSupabase = async () => {
+    setIsSaving(true);
+    try {
+      const cleanNodes = nodes.map(({ id, position, type }) => ({ id, position, type }));
+      const { error } = await supabase.from('tree_layout').upsert({ id: 'main_tree', nodes: cleanNodes, edges: edges });
+      if (error) throw error;
+      alert("Сохранено в облаке!");
+    } catch (e: any) { alert(e.message); }
+    finally { setIsSaving(false); }
+  };
+
+  // КНОПКА ПАНИКИ: СБРОСИТЬ К НАЧАЛЬНЫМ НАСТРОЙКАМ
+  const resetLayout = () => {
+    if (window.confirm("Это вернет все карточки в ровные ряды по поколениям и удалит текущие линии. Вы уверены?")) {
+      setNodes(initialNodes);
+      setEdges([]); // Очищаем связи, чтобы нарисовать заново красиво
+    }
+  };
+
+  // Красивые линии (Розовые для супругов, Золотые для детей)
+  const onConnect = useCallback(
+    (params: Connection | Edge) => {
+      const isSpouseConnection = params.sourceHandle?.includes('spouse') || params.targetHandle?.includes('spouse');
+      return setEdges((eds) => addEdge({ 
+        ...params, 
+        type: 'default', 
+        style: { stroke: isSpouseConnection ? '#f43f5e' : '#d4af37', strokeWidth: 4 },
+        animated: false 
+      }, eds));
+    },
+    [setEdges]
+  );
+
+  const onEdgeClick = useCallback((event: React.MouseEvent, edge: Edge) => {
+    if (window.confirm("Удалить эту связь?")) {
+      setEdges((eds) => eds.filter((e) => e.id !== edge.id));
+    }
+  }, [setEdges]);
+
+  return (
+    <div className="w-full h-[calc(100vh-64px)] bg-[#f5f2ed]">
+      {/* Стили для того, чтобы точки были огромными и всегда поверх линий */}
+      <style>{`
+        .react-flow__handle { width: 20px !important; height: 20px !important; z-index: 50 !important; }
+      `}</style>
+
+      <ReactFlow
+        nodes={nodes}
+        edges={edges}
+        nodeTypes={nodeTypes}
+        onNodesChange={onNodesChange}
+        onEdgesChange={onEdgesChange}
+        onConnect={onConnect}
+        onEdgeClick={onEdgeClick}
+        deleteKeyCode={["Backspace", "Delete"]}
+        connectionLineType={ConnectionLineType.Bezier}
+        fitView={false}
+        defaultViewport={{ x: 0, y: 800, zoom: 0.6 }} // Камера стартует снизу, где находишься ты
+        minZoom={0.05}
+        maxZoom={2}
+        panOnDrag={true}
+        nodesDraggable={true}
+      >
+        <Background color="#dcd6cc" gap={40} />
+        <Controls />
+        <Panel position="top-left" className="bg-white/95 p-4 border border-stone-200 shadow-2xl rounded-2xl max-w-[280px]">
+            <h2 className="font-serif font-bold text-stone-800 text-lg mb-2">Конструктор</h2>
+            <div className="text-[10px] text-stone-500 mb-4 space-y-1 uppercase font-bold">
+              <p className="text-amber-600">● ВЕРХ/НИЗ — РОДИТЕЛИ И ДЕТИ</p>
+              <p className="text-rose-600">● ЛЕВО/ПРАВО — СУПРУГИ</p>
+              <p className="text-stone-400">● КЛИК НА ЛИНИЮ — УДАЛИТЬ</p>
+            </div>
+            <div className="space-y-2">
+              <button onClick={saveToSupabase} disabled={isSaving} className="w-full bg-amber-600 text-white font-bold py-3 rounded-xl hover:bg-amber-700 shadow-lg transition-colors">
+                {isSaving ? "СОХРАНЯЮ..." : "ЗАФИКСИРОВАТЬ"}
+              </button>
+              <button onClick={resetLayout} className="w-full bg-stone-200 text-stone-600 font-bold py-2 rounded-xl hover:bg-stone-300 transition-colors text-xs">
+                СБРОСИТЬ РАССТАНОВКУ
+              </button>
+            </div>
+        </Panel>
+      </ReactFlow>
+
+      {/* Выезжающая панель с биографией */}
+      <Sheet open={!!selectedMember} onOpenChange={() => setSelectedMember(null)}>
+        <SheetContent className="bg-[#fdfaf5] overflow-y-auto sm:max-w-lg font-serif">
+          {selectedMember && (
+            <div className="py-8">
+              <div className="text-center mb-8">
+                  <div className="w-24 h-24 bg-stone-100 rounded-full mx-auto flex items-center justify-center text-4xl text-stone-400 border-4 border-white shadow-xl mb-4">
+                    {selectedMember.name[0]}
+                  </div>
+                  <h2 className="text-3xl font-bold text-stone-900 leading-tight">{selectedMember.name}</h2>
+                  <p className="text-amber-700 italic text-xl mt-2">{selectedMember.years}</p>
+              </div>
+              <div className="space-y-6 text-lg text-stone-800 leading-relaxed">
+                  <p>{selectedMember.bio || "Жизненный путь исследуется..."}</p>
+                  
+                  {selectedMember.habits?.length > 0 && (
+                    <div className="mt-4">
+                      <h4 className="text-xs uppercase tracking-widest text-stone-400 font-bold mb-2">Особенности</h4>
+                      <div className="flex flex-wrap gap-2">
+                        {selectedMember.habits.map(h => <span key={h} className="bg-white border border-stone-200 px-3 py-1 rounded-md text-sm shadow-sm">{h}</span>)}
+                      </div>
+                    </div>
+                  )}
+
+                  {selectedMember.medical?.length > 0 && (
+                    <div className="mt-6 p-4 bg-red-50/50 border border-red-100 rounded-lg">
+                      <h4 className="text-xs uppercase tracking-widest text-red-500 font-bold mb-2">Медицинский профиль</h4>
+                      <ul className="list-disc pl-5 text-sm text-red-900/80">{selectedMember.medical.map(m => <li key={m}>{m}</li>)}</ul>
+                    </div>
+                  )}
+              </div>
+            </div>
+          )}
+        </SheetContent>
+      </Sheet>
+    </div>
+  );
+};
+
+export default Tree;
