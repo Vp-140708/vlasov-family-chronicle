@@ -6,8 +6,7 @@ import ReactFlow, {
 } from 'reactflow';
 import 'reactflow/dist/style.css';
 import { supabase } from '@/lib/supabase';
-// ДОБАВИЛ Search В ИМПОРТ НИЖЕ
-import { Save, X, Medal, HeartPulse, Home, User, FileText, Star, Search } from 'lucide-react';
+import { Save, X, Medal, HeartPulse, Home, User, FileText, Star, Search, LogOut, GraduationCap, MapPin, Briefcase,Sparkles  } from 'lucide-react';
 import dagre from '@dagrejs/dagre';
 import PersonNode from '../components/PersonNode';
 import { toast } from "sonner";
@@ -19,41 +18,7 @@ const MY_NODE_TYPES = {
 
 const MY_EDGE_OPTIONS = {
   type: 'default',
-  style: {
-    stroke: '#cda85f',
-    strokeWidth: 3,
-  },
-};
-
-const getLayoutedElements = (nodes: any[], edges: any[]) => {
-  const dagreGraph = new dagre.graphlib.Graph();
-  dagreGraph.setDefaultEdgeLabel(() => ({}));
-  dagreGraph.setGraph({ rankdir: 'TB', nodesep: 50, ranksep: 100 });
-
-  nodes.forEach((node) => {
-    dagreGraph.setNode(node.id, { width: 260, height: 80 });
-  });
-
-  edges.forEach((edge) => {
-    dagreGraph.setEdge(edge.source, edge.target);
-  });
-
-  dagre.layout(dagreGraph);
-
-  return {
-    nodes: nodes.map((node) => {
-      const nodeWithPosition = dagreGraph.node(node.id);
-      return {
-        ...node,
-        type: 'custom',
-        position: {
-          x: nodeWithPosition.x - 260 / 2,
-          y: nodeWithPosition.y - 80 / 2,
-        },
-      };
-    }),
-    edges,
-  };
+  style: { stroke: '#cda85f', strokeWidth: 3 },
 };
 
 const TreeContent = () => {
@@ -63,6 +28,12 @@ const TreeContent = () => {
   const [searchQuery, setSearchQuery] = useState("");
   const { setViewport, getViewport, setCenter } = useReactFlow();
 
+  // Функция выхода
+  const handleLogout = async () => {
+    await supabase.auth.signOut();
+    window.location.href = "/login";
+  };
+
   const fetchData = useCallback(async () => {
     const { data: people } = await supabase.from('people').select('*');
     const { data: relations } = await supabase.from('family_edges').select('*');
@@ -71,7 +42,6 @@ const TreeContent = () => {
     if (people) {
       const initialNodes = people.map(p => {
         const saved = layout?.nodes?.find((n: any) => n.id === p.id);
-
         let role = 'node-standard';
         const bio = (p.biography || "").toLowerCase();
         if (bio.includes('священник')) role = 'node-religious';
@@ -83,7 +53,7 @@ const TreeContent = () => {
           id: p.id,
           sourcePosition: Position.Bottom,
           targetPosition: Position.Top,
-          position: saved?.position || { x: p.x_pos || 0, y: p.y_pos || 0 },
+          position: saved?.position || { x: 0, y: 0 },
           data: { 
             member: p,
             label: (
@@ -109,12 +79,10 @@ const TreeContent = () => {
           stroke: r.label === 'супруги' ? '#f43f5e' : '#cda85f',
           strokeWidth: r.label === 'супруги' ? 4 : 3
         },
-        interactionWidth: 25,
+        interactionWidth: 30, // Сделал зону клика еще шире для удаления
       })));
     }
-
-    if (layout?.viewport) setViewport(layout.viewport, { duration: 1000 });
-  }, [setViewport]);
+  }, []);
 
   useEffect(() => { fetchData(); }, [fetchData]);
 
@@ -126,16 +94,10 @@ const TreeContent = () => {
       id: 'main-tree',
       nodes: nodes.map(n => ({ id: n.id, position: n.position })),
       viewport: getViewport(),
-      edges: edges.map(e => ({ id: e.id, source: e.source, target: e.target, type: e.type, style: e.style }))
+      edges: edges.map(e => ({ id: e.id, source: e.source, target: e.target }))
     });
-    if (!error) toast.success("Ваша расстановка и связи сохранены!");
+    if (!error) toast.success("Данные синхронизированы с облаком");
   };
-
-  const onLayout = useCallback(() => {
-    const { nodes: layoutedNodes, edges: layoutedEdges } = getLayoutedElements(nodes, edges);
-    setNodes([...layoutedNodes]);
-    setEdges([...layoutedEdges]);
-  }, [nodes, edges]);
 
   const onEdgeClick = useCallback((event: any, edge: Edge) => {
     if (window.confirm("Удалить эту связь?")) {
@@ -143,99 +105,113 @@ const TreeContent = () => {
     }
   }, []);
 
+  // Хелпер для отображения данных или "Неизвестно"
+  const InfoRow = ({ icon: Icon, label, value, color = "text-stone-400" }: any) => (
+    <div className="flex flex-col gap-1">
+      <h4 className={`flex items-center gap-2 text-[10px] uppercase tracking-[0.2em] font-bold ${color} border-b border-stone-200 pb-1 mb-1`}>
+        <Icon size={14} /> {label}
+      </h4>
+      <p className="text-stone-800 text-base">{value || "Неизвестно"}</p>
+    </div>
+  );
+
   return (
     <div className="h-screen w-full bg-[#fdfaf5] relative">
-      <div className="absolute top-20 left-10 z-50 flex flex-wrap gap-3 max-w-2xl">
-        <div className="relative group">
-          <Search className="absolute left-3 top-2.5 text-stone-400" size={16} />
-          <input
-            className="pl-10 pr-4 py-2 bg-white/90 backdrop-blur-sm border border-[#b4945c] rounded-full font-serif text-sm w-64 shadow-lg focus:ring-2 focus:ring-[#b4945c]"
-            placeholder="Поиск по архиву..."
-            value={searchQuery}
-            onChange={e => {
-              setSearchQuery(e.target.value);
-              const found = nodes.find(n => n.id.toLowerCase().includes(e.target.value.toLowerCase()));
-              if (found) setCenter(found.position.x, found.position.y, { zoom: 1, duration: 500 });
-            }}
-          />
-        </div>
-        <button onClick={onSave} className="flex items-center gap-2 px-6 py-2 bg-[#b4945c] text-white rounded-full shadow-lg font-serif uppercase text-[10px] tracking-widest font-bold hover:bg-[#8e7549] transition-all">
-          <Save size={14} /> Сохранить в облако
+      {/* ПАНЕЛЬ УПРАВЛЕНИЯ */}
+      <div className="absolute top-20 left-4 right-4 md:left-10 z-50 flex flex-wrap gap-3 pointer-events-auto">
+        <input
+          className="pl-4 pr-4 py-2 bg-white border border-[#b4945c] rounded-full font-serif text-sm w-full md:w-64 shadow-lg"
+          placeholder="Поиск..."
+          value={searchQuery}
+          onChange={e => setSearchQuery(e.target.value)}
+        />
+        <button onClick={onSave} className="flex items-center gap-2 px-6 py-2 bg-[#b4945c] text-white rounded-full shadow-lg font-serif text-[10px] tracking-widest font-bold">
+          <Save size={14} /> Сохранить
         </button>
-        <button onClick={onLayout} className="bg-stone-800 text-white px-6 py-2 rounded-full font-serif uppercase text-[10px] tracking-widest font-bold shadow-lg hover:bg-black transition-all">
-          ✨ Выровнять всё
+        <button onClick={handleLogout} className="flex items-center gap-2 px-6 py-2 bg-red-600 text-white rounded-full shadow-lg font-serif text-[10px] tracking-widest font-bold">
+          <LogOut size={14} /> Выйти
         </button>
       </div>
 
       <ReactFlow
-        nodes={nodes}
-        edges={edges}
-        onNodesChange={onNodesChange}
-        onEdgesChange={onEdgesChange}
+        nodes={nodes} edges={edges}
+        onNodesChange={onNodesChange} onEdgesChange={onEdgesChange}
         onEdgeClick={onEdgeClick}
         onNodeClick={(_, node) => node.data?.member && setSelected(node.data.member)}
-        nodeTypes={MY_NODE_TYPES}
-        defaultEdgeOptions={MY_EDGE_OPTIONS}
-        fitView
-        minZoom={0.01}
+        nodeTypes={MY_NODE_TYPES} defaultEdgeOptions={MY_EDGE_OPTIONS}
+        fitView minZoom={0.01}
       >
         <Background color="#dcd6cc" gap={40} />
         <Controls />
       </ReactFlow>
 
+      {/* КАРТОЧКА ОПИСАНИЯ */}
       {selected && (
-        <div className="fixed inset-0 z-[200] flex items-end sm:items-center justify-end sm:p-0 bg-black/40 backdrop-blur-sm">
-          <div className="bg-[#fdfaf5] h-full sm:h-full w-full sm:max-w-xl shadow-2xl overflow-y-auto border-l-2 border-[#b4945c] animate-in slide-in-from-right duration-300">
-            <div className="bg-stone-900 text-stone-50 p-8 pt-12 relative">
-              <button onClick={() => setSelected(null)} className="absolute top-6 right-6 text-stone-400 hover:text-white"><X size={32} /></button>
+        <div className="fixed inset-0 z-[1000] flex items-stretch justify-end bg-black/60 backdrop-blur-sm transition-opacity">
+          {/* Клик по фону теперь тоже закрывает */}
+          <div className="absolute inset-0" onClick={() => setSelected(null)} />
+          
+          <div className="relative bg-[#fdfaf5] h-full w-full sm:max-w-xl shadow-2xl overflow-y-auto border-l-4 border-[#b4945c] flex flex-col animate-in slide-in-from-right duration-300">
+            
+            {/* Кнопка закрытия вынесена в отдельный слой */}
+            <button 
+              onClick={() => setSelected(null)} 
+              className="absolute top-6 left-6 z-[1100] p-2 bg-white/10 hover:bg-white/20 rounded-full text-white border border-white/30 transition-all shadow-xl"
+              style={{ pointerEvents: 'auto' }}
+            >
+              <X size={28} />
+            </button>
+
+            {/* Header */}
+            <div className="bg-stone-900 text-stone-50 p-10 pt-20 relative">
               <div className="flex items-center gap-2 text-amber-500 text-[10px] uppercase tracking-[0.3em] font-bold mb-3">
                 <Star size={12} fill="currentColor" /> {selected.info_label || "Член рода"}
               </div>
-              <h2 className="text-4xl font-serif font-bold mb-2">{selected.full_name}</h2>
-              <p className="text-stone-400 italic text-xl">{selected.years || "Даты уточняются"}</p>
+              <h2 className="text-4xl font-serif font-bold mb-2 leading-tight">{selected.full_name}</h2>
+              <p className="text-stone-400 italic text-xl font-serif">{selected.years || "Даты уточняются"}</p>
             </div>
-            <div className="p-8 space-y-10 font-serif text-stone-800">
-              <section>
-                <h4 className="flex items-center gap-2 text-[10px] uppercase tracking-[0.2em] text-stone-400 font-bold mb-4 border-b border-stone-200 pb-2">
-                  <FileText size={18} /> Летопись жизни
-                </h4>
-                <p className="text-lg leading-relaxed text-justify first-letter:text-4xl first-letter:font-bold first-letter:float-left first-letter:mr-2">
-                  {selected.biography || "Сведения собираются в государственных и семейных архивах..."}
-                </p>
+
+            {/* Детальная информация */}
+            <div className="p-10 space-y-8 font-serif">
+              
+              <section className="bg-white p-6 border border-stone-200 rounded-sm shadow-sm">
+                 <h4 className="flex items-center gap-2 text-[10px] uppercase tracking-[0.2em] text-stone-400 font-bold mb-4 border-b pb-2"><FileText size={16}/> Летопись</h4>
+                 <p className="text-lg leading-relaxed text-stone-800 first-letter:text-5xl first-letter:font-bold first-letter:float-left first-letter:mr-3 first-letter:text-stone-900">
+                   {selected.biography || "В архивах пока не найдено развернутого описания жизненного пути."}
+                 </p>
               </section>
-              {selected.achievements && (
-                <section>
-                  <h4 className="flex items-center gap-2 text-[10px] uppercase tracking-[0.2em] text-amber-600 font-bold mb-4 border-b border-stone-200 pb-2">
-                    <Medal size={18} /> Награды и отличия
-                  </h4>
-                  <p className="text-lg bg-amber-50 p-4 rounded-lg border border-amber-100 shadow-sm">{selected.achievements}</p>
-                </section>
-              )}
-              {(selected.appearance || selected.character_traits) && (
-                <section>
-                  <h4 className="flex items-center gap-2 text-[10px] uppercase tracking-[0.2em] text-blue-700 font-bold mb-4 border-b border-stone-200 pb-2">
-                    <User size={18} /> Личность
-                  </h4>
-                  {selected.appearance && <p className="mb-4"><strong>Внешность:</strong> {selected.appearance}</p>}
-                  {selected.character_traits && <p><strong>Особенности:</strong> {selected.character_traits}</p>}
-                </section>
-              )}
-              {selected.possessions && (
-                <section>
-                  <h4 className="flex items-center gap-2 text-[10px] uppercase tracking-[0.2em] text-emerald-700 font-bold mb-4 border-b border-stone-200 pb-2">
-                    <Home size={18} /> Быт и состояние
-                  </h4>
-                  <p className="italic text-lg">{selected.possessions}</p>
-                </section>
-              )}
-              {selected.health_info && (
-                <section className="bg-red-50/50 p-6 rounded-lg border border-red-100">
-                  <h4 className="flex items-center gap-2 text-[10px] uppercase tracking-[0.2em] text-red-500 font-bold mb-3 border-b border-red-200 pb-2">
-                    <HeartPulse size={18} /> Генетическая память
-                  </h4>
-                  <p className="text-red-900 leading-relaxed">{selected.health_info}</p>
-                </section>
-              )}
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                <InfoRow icon={MapPin} label="Место рождения" value={selected.birth_place} />
+                <InfoRow icon={GraduationCap} label="Обучение" value={selected.education} />
+                <InfoRow icon={Briefcase} label="Профессия" value={selected.profession} />
+                <InfoRow icon={User} label="Внешность" value={selected.appearance} />
+              </div>
+
+              <InfoRow icon={Sparkles} label="Характер и особенности" value={selected.character_traits} />
+              
+              <InfoRow 
+                icon={Medal} 
+                label="Награды и достижения" 
+                value={selected.achievements} 
+                color="text-amber-600" 
+              />
+              
+              <InfoRow 
+                icon={Home} 
+                label="Быт и владения" 
+                value={selected.possessions} 
+                color="text-emerald-700" 
+              />
+
+              <div className="bg-red-50 p-6 rounded-lg border border-red-100">
+                <InfoRow 
+                  icon={HeartPulse} 
+                  label="Медицинские заметки" 
+                  value={selected.health_info} 
+                  color="text-red-500" 
+                />
+              </div>
             </div>
           </div>
         </div>
@@ -244,4 +220,4 @@ const TreeContent = () => {
   );
 };
 
-export default function Tree() { return (<ReactFlowProvider><TreeContent /></ReactFlowProvider>); }
+export default function Tree() { return (<ReactFlowProvider><TreeContent /></ReactFlowProvider>); } 
